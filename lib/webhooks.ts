@@ -481,12 +481,28 @@ interface RawStage5Report {
   fullReportMarkdown?: string;
 }
 
+function unwrapReportPayload(raw: unknown): RawStage5Report {
+  if (Array.isArray(raw)) {
+    const first = raw[0];
+    if (first && typeof first === 'object' && !Array.isArray(first)) {
+      return first as RawStage5Report;
+    }
+    return {};
+  }
+  if (raw && typeof raw === 'object') return raw as RawStage5Report;
+  return {};
+}
+
+let generateReportInflight: Promise<Stage5ReportResponse> | null = null;
+
 export function generateReport(
   employeeId: string,
   sessionId: string,
   reviewState: ReviewState,
   timeSpentSeconds: number,
 ): Promise<Stage5ReportResponse> {
+  if (generateReportInflight) return generateReportInflight;
+
   const stage3Qa = (reviewState.stage3?.answers || []).map((item) => ({
     question: item.question,
     category: item.category,
@@ -496,7 +512,7 @@ export function generateReport(
     pasteAttempts: item.pasteAttempts || 0,
   }));
 
-  return postJSON<RawStage5Report>(WEBHOOKS.generateReport, {
+  generateReportInflight = postJSON<unknown>(WEBHOOKS.generateReport, {
     employeeId,
     sessionId,
     employeeName: reviewState.employeeName,
@@ -533,24 +549,29 @@ export function generateReport(
         whatsappEtiquette: peer.ratings.whatsappEtiquette,
       },
     })),
-  }, 120000).then((raw) => {
+  }, 180000).then((raw) => {
+    const body = unwrapReportPayload(raw);
     const hasContent =
-      raw.overallScore != null ||
-      Boolean(raw.fullReportMarkdown) ||
-      Boolean(raw.majorAchievements) ||
-      (Array.isArray(raw.dimensions) && raw.dimensions.length > 0);
+      body.overallScore != null ||
+      Boolean(body.fullReportMarkdown) ||
+      Boolean(body.majorAchievements) ||
+      (Array.isArray(body.dimensions) && body.dimensions.length > 0);
     if (!hasContent) {
       throw new WebhookError('Empty report response');
     }
     return {
-      overallScore: Number(raw.overallScore || 0),
-      dimensions: normalizeDimensions(raw.dimensions),
-      majorAchievements: raw.majorAchievements || '',
-      keyGaps: raw.keyGaps || '',
-      developmentPriorities: raw.developmentPriorities || '',
-      peerFeedbackSummary: raw.peerFeedbackSummary || '',
-      aiObservations: raw.aiObservations || raw.crossStageObservations || '',
-      fullReportMarkdown: raw.fullReportMarkdown || '',
+      overallScore: Number(body.overallScore || 0),
+      dimensions: normalizeDimensions(body.dimensions),
+      majorAchievements: body.majorAchievements || '',
+      keyGaps: body.keyGaps || '',
+      developmentPriorities: body.developmentPriorities || '',
+      peerFeedbackSummary: body.peerFeedbackSummary || '',
+      aiObservations: body.aiObservations || body.crossStageObservations || '',
+      fullReportMarkdown: body.fullReportMarkdown || '',
     };
+  }).finally(() => {
+    generateReportInflight = null;
   });
+
+  return generateReportInflight;
 }

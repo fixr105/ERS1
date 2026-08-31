@@ -92,7 +92,7 @@ export function Stage5Report({ employeeId }: { employeeId: string }) {
     };
   }, [loading]);
 
-  // Fetch report
+  // Fetch report. generateReport dedupes in-flight calls so Strict Mode remounts share one n8n run.
   useEffect(() => {
     if (state.stage5) return;
     let cancelled = false;
@@ -104,25 +104,19 @@ export function Stage5Report({ employeeId }: { employeeId: string }) {
         const latest = stateRef.current;
         const timeSpentSeconds = Math.round((Date.now() - stageStartTime.current) / 1000);
         const res = await generateReport(employeeId, latest.sessionId, latest, timeSpentSeconds);
-        if (!cancelled && res) {
-          setReport(res);
-          setLoadingProgress(100);
-          const stage5Data: Stage5Data = {
-            overallScore: res.overallScore,
-            dimensions: res.dimensions,
-            majorAchievements: res.majorAchievements,
-            keyGaps: res.keyGaps,
-            developmentPriorities: res.developmentPriorities,
-            peerFeedbackSummary: res.peerFeedbackSummary,
-            aiObservations: res.aiObservations,
-          };
-          setStage5(stage5Data);
-          setTimeout(() => {
-            if (!cancelled) setLoading(false);
-          }, 500);
-        } else if (!cancelled) {
-          throw new Error('Empty response');
-        }
+        setReport(res);
+        setLoadingProgress(100);
+        const stage5Data: Stage5Data = {
+          overallScore: res.overallScore,
+          dimensions: res.dimensions,
+          majorAchievements: res.majorAchievements,
+          keyGaps: res.keyGaps,
+          developmentPriorities: res.developmentPriorities,
+          peerFeedbackSummary: res.peerFeedbackSummary,
+          aiObservations: res.aiObservations,
+        };
+        setStage5(stage5Data);
+        setLoading(false);
       } catch (err) {
         console.error('Webhook failed:', err);
         if (!cancelled) {
@@ -133,7 +127,9 @@ export function Stage5Report({ employeeId }: { employeeId: string }) {
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [employeeId, retryKey, state.stage5, setStage5]);
 
   const handleDownloadPDF = async () => {

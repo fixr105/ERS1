@@ -43,13 +43,12 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
   const stageStartTime = useRef(Date.now());
 
   const fieldKeys = QUESTIONS.map((q) => q.key);
-  const { showGate, dismissGate, recordKeystroke, keystrokes, isFieldValid, getMismatchCount } =
+  const { showGate, dismissGate, recordKeystroke, keystrokes } =
     useKeyboardEnforcement(fieldKeys);
 
   const getCharCount = (text: string) => text.length;
 
-  const allValid = QUESTIONS.every((q) => isFieldValid(q.key, answers[q.key] || '', q.minChars));
-  const mismatchCount = getMismatchCount(QUESTIONS.map((q) => ({ key: q.key, text: answers[q.key] || '' })));
+  const allValid = QUESTIONS.every((q) => (answers[q.key] || '').length >= q.minChars);
 
   const handleChange = (key: string, value: string) => {
     setAnswers((a) => ({ ...a, [key]: value }));
@@ -90,7 +89,10 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
       router.push(`/review/${employeeId}/2`);
     } catch (err) {
       console.error('Webhook failed:', err);
-      setError('Something went wrong. Please try again.');
+      setStage1(stage1Data);
+      toast('Saved on this device. Server did not confirm.', 'error');
+      router.push(`/review/${employeeId}/2`);
+    } finally {
       setSubmitting(false);
     }
   };
@@ -150,7 +152,11 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
                 data-keyboard-only="true"
                 onPaste={(e) => { e.preventDefault(); toast('Paste is disabled — keyboard input only', 'error'); }}
                 onContextMenu={(e) => e.preventDefault()}
-                onKeyPress={() => recordKeystroke(q.key)}
+                onKeyDown={(e) => {
+                  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    recordKeystroke(q.key);
+                  }
+                }}
                 onChange={(e) => handleChange(q.key, e.target.value)}
                 rows={4}
                 placeholder="Type your answer..."
@@ -261,9 +267,9 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
         <button
           className="btn-primary"
           onClick={handleSubmit}
-          disabled={!allValid || submitting || mismatchCount > 0}
+          disabled={!allValid || submitting}
           style={{ padding: '14px 28px' }}
-          title={mismatchCount > 0 ? 'Keystroke count must match character count' : !allValid ? 'All fields require minimum characters' : undefined}
+          title={!allValid ? 'All fields require minimum characters' : undefined}
         >
           {submitting ? (
             <>

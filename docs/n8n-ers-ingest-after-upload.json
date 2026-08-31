@@ -1,0 +1,234 @@
+{
+  "name": "ERS ingest after LlamaIndex upload",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst root = item.json || {};\nconst b = root.body || root;\nconst bin = item.binary || {};\nconst key = Object.keys(bin)[0] || '';\nconst file = key ? bin[key] : null;\nfunction rec(v) {\n  if (typeof v === 'string' && /^rec[A-Za-z0-9]{10,}$/.test(v)) return v;\n  if (Array.isArray(v) && typeof v[0] === 'string' && /^rec[A-Za-z0-9]{10,}$/.test(v[0])) return v[0];\n  return null;\n}\nreturn [{\n  json: {\n    sessionId: rec(b.sessionId) || rec(root.sessionId) || rec(b.Session) || null,\n    employeeId: rec(b.employeeId) || rec(root.employeeId) || null,\n    name: b.name || root.name || file?.fileName || 'upload.pdf',\n    type: b.type || root.type || file?.mimeType || 'application/pdf',\n    size: Number(b.size || root.size || file?.fileSize || 0),\n    hasBinary: !!file,\n  },\n  binary: file ? { data: file } : {},\n}];"
+      },
+      "id": "ers-extract-file-001",
+      "name": "ERS Extract File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3200, 3808]
+    },
+    {
+      "parameters": {
+        "jsCode": "function rec(v) {\n  if (typeof v === 'string' && /^rec[A-Za-z0-9]{10,}$/.test(v)) return v;\n  if (Array.isArray(v) && typeof v[0] === 'string' && /^rec[A-Za-z0-9]{10,}$/.test(v[0])) return v[0];\n  return null;\n}\nfunction pickSession(obj) {\n  if (!obj || typeof obj !== 'object') return null;\n  const body = obj.body || {};\n  return rec(obj.sessionId) || rec(body.sessionId) || rec(obj.Session) || rec(body.Session);\n}\nfunction nodeJson(name) {\n  try { return $(name).first().json || {}; } catch (e) { return {}; }\n}\n\nconst uploadResp = $input.first().json || {};\nconst extracted = nodeJson('ERS Extract File');\nconst extractedOld = nodeJson('Extract File');\nconst webhook = nodeJson('WH Ingest File');\n\nreturn [{\n  json: {\n    bank_job_id: uploadResp.body?.id || uploadResp.id || null,\n    sessionId: pickSession(extracted) || pickSession(extractedOld) || pickSession(webhook) || null,\n    employeeId: rec(extracted.employeeId) || rec(extractedOld.employeeId) || rec(webhook.body?.employeeId) || rec(webhook.employeeId) || null,\n    name: extracted.name || extractedOld.name || webhook.body?.name || webhook.name || 'upload.pdf',\n    type: extracted.type || extractedOld.type || 'application/pdf',\n    fileId: null,\n  },\n}];"
+      },
+      "id": "ers-init-poll-001",
+      "name": "ERS Init Parse Poll",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3920, 3808]
+    },
+    {
+      "parameters": { "amount": 90 },
+      "id": "ers-wait-parse-001",
+      "name": "ERS Wait Parse",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [4144, 3808],
+      "webhookId": "ers-wait-parse-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming = $input.first().json || {};\nreturn [{\n  json: {\n    ...incoming,\n    sessionId: incoming.sessionId || null,\n    bank_job_id: incoming.bank_job_id || incoming.job_id || incoming.id || null,\n  },\n}];"
+      },
+      "id": "ers-prep-status-001",
+      "name": "ERS Prep Parse Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4368, 3808]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.cloud.llamaindex.ai/api/v1/parsing/job/{{ $json.bank_job_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer PASTE_LLAMAINDEX_KEY" },
+            { "name": "accept", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ers-check-status-001",
+      "name": "ERS Check Parse Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4544, 3808]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "status-success",
+              "leftValue": "={{ $json.body.status || $json.status }}",
+              "rightValue": "SUCCESS",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ers-parse-done-001",
+      "name": "ERS Parse Done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [4720, 3808]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.cloud.llamaindex.ai/api/v1/parsing/job/{{ $('ERS Prep Parse Status').item.json.bank_job_id }}/result/markdown",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer PASTE_LLAMAINDEX_KEY" },
+            { "name": "accept", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ers-get-markdown-001",
+      "name": "ERS Get Markdown",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4928, 3664],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function nodeJson(name) {\n  try { return $(name).first().json || {}; } catch (e) { return {}; }\n}\nfunction markdownFrom(raw) {\n  if (!raw || typeof raw !== 'object') return typeof raw === 'string' ? raw : '';\n  if (raw.error) return '';\n  return raw.markdown || raw.body?.markdown || raw.text || raw.parsedText || raw.content || raw.md || '';\n}\n\nconst raw = $input.first().json || {};\nconst prep = nodeJson('ERS Prep Parse Status');\nconst errMsg = raw.error?.message || raw.message || '';\nconst isAuth = raw.error?.status === 401 || /401|Not authenticated/i.test(String(errMsg));\nconst text = markdownFrom(raw);\nconst ok = !!String(text).trim() && !isAuth;\n\nreturn [{\n  json: {\n    sessionId: prep.sessionId || null,\n    name: prep.name || 'upload.pdf',\n    type: prep.type || 'application/pdf',\n    parseRaw: String(text || '').slice(0, 100000),\n    parsed: ok,\n    parseStatus: ok ? 'ok' : (isAuth ? 'llama-401-not-authenticated' : 'failed'),\n    error: isAuth\n      ? 'ERS Get Markdown returned 401. Paste a valid LlamaIndex key on ERS Get Markdown and ERS Check Parse Status (replace PASTE_LLAMAINDEX_KEY).'\n      : (errMsg || null),\n  },\n}];"
+      },
+      "id": "ers-normalize-001",
+      "name": "ERS Normalize Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5120, 3664]
+    },
+    {
+      "parameters": {
+        "jsCode": "const st = $input.first().json || {};\nconst prep = $('ERS Prep Parse Status').first().json || {};\nreturn [{\n  json: {\n    sessionId: prep.sessionId || null,\n    parsed: false,\n    parseStatus: 'pending',\n    llamaStatus: st.body?.status || st.status || 'PENDING',\n  },\n}];"
+      },
+      "id": "ers-pending-001",
+      "name": "ERS Parse Pending",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4928, 3968]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Stage 2 Files",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Session": "={{ $json.sessionId ? [$json.sessionId] : [] }}",
+            "File Name": "={{ $json.name }}",
+            "File Type": "={{ $json.type }}",
+            "Parse Raw": "={{ $json.parseRaw }}",
+            "Parse Status": "={{ $json.parseStatus }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "Session", "displayName": "Session", "required": false, "defaultMatch": false, "canBeUsedToMatch": false, "display": true, "type": "array", "readOnly": false, "removed": false },
+            { "id": "File Name", "displayName": "File Name", "required": false, "defaultMatch": false, "canBeUsedToMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "File Type", "displayName": "File Type", "required": false, "defaultMatch": false, "canBeUsedToMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "Parse Raw", "displayName": "Parse Raw", "required": false, "defaultMatch": false, "canBeUsedToMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "Parse Status", "displayName": "Parse Status", "required": false, "defaultMatch": false, "canBeUsedToMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ers-at-create-file-001",
+      "name": "ERS Create Stage2 File",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [5328, 3664],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "7GvicfJT1nu7OUoa",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const at = $input.first().json || {};\nlet n = {};\ntry { n = $('ERS Normalize Parse').first().json || {}; } catch (e) { n = {}; }\nreturn [{\n  json: {\n    success: !!(at.id && n.parsed),\n    fileId: at.id || null,\n    parsed: !!n.parsed,\n    parseStatus: n.parseStatus || at.error?.message || at.message || 'failed',\n  },\n}];"
+      },
+      "id": "ers-ingest-response-001",
+      "name": "ERS Ingest Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5520, 3808]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "ers-respond-ingest-001",
+      "name": "ERS Respond Ingest",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [5728, 3808]
+    }
+  ],
+  "connections": {
+    "ERS Init Parse Poll": {
+      "main": [[{ "node": "ERS Wait Parse", "type": "main", "index": 0 }]]
+    },
+    "ERS Wait Parse": {
+      "main": [[{ "node": "ERS Prep Parse Status", "type": "main", "index": 0 }]]
+    },
+    "ERS Prep Parse Status": {
+      "main": [[{ "node": "ERS Check Parse Status", "type": "main", "index": 0 }]]
+    },
+    "ERS Check Parse Status": {
+      "main": [[{ "node": "ERS Parse Done?", "type": "main", "index": 0 }]]
+    },
+    "ERS Parse Done?": {
+      "main": [
+        [{ "node": "ERS Get Markdown", "type": "main", "index": 0 }],
+        [{ "node": "ERS Parse Pending", "type": "main", "index": 0 }]
+      ]
+    },
+    "ERS Get Markdown": {
+      "main": [[{ "node": "ERS Normalize Parse", "type": "main", "index": 0 }]]
+    },
+    "ERS Normalize Parse": {
+      "main": [[{ "node": "ERS Create Stage2 File", "type": "main", "index": 0 }]]
+    },
+    "ERS Create Stage2 File": {
+      "main": [[{ "node": "ERS Ingest Response", "type": "main", "index": 0 }]]
+    },
+    "ERS Parse Pending": {
+      "main": [[{ "node": "ERS Ingest Response", "type": "main", "index": 0 }]]
+    },
+    "ERS Ingest Response": {
+      "main": [[{ "node": "ERS Respond Ingest", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateCredsSetupCompleted": true }
+}

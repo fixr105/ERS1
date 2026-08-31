@@ -1,0 +1,4463 @@
+{
+  "name": "Seven Fincorp ERS — Flow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "get-employees",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-emp",
+      "name": "WH Get Employees",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "get-employees-001"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Employees",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "at-emp",
+      "name": "AT List Employees",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const employees=items.map(i=>{const f=i.json.fields||i.json;const name=f.Name||f.name||'';return {id:i.json.id,name,department:f.Department||'',role:f.Role||'',email:f.Email||'',active:f.Active!==false};}).filter(e=>{if(!e.name||!e.id)return false;if(/^NOTES:/i.test(e.name))return false;const junk=new Set(['name','single line text','email','department','role']);return !junk.has(e.name.toLowerCase());});return [{json:{employees,count:employees.length}}];"
+      },
+      "id": "code-emp",
+      "name": "Format Employees",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "res-emp",
+      "name": "Respond Employees",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "submit-stage1",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-s1",
+      "name": "WH Submit Stage1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        280
+      ],
+      "webhookId": "submit-stage1-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body||$input.first().json;const answers=b.answers||[];const now=new Date().toISOString().split('T')[0];return [{json:{employeeId:b.employeeId,employeeName:b.employeeName||'',month:b.month,year:Number(b.year),answers,timeSpentSeconds:Number(b.timeSpentSeconds)||0,submittedAt:now,q1:answers[0]?.answer||'',c1:answers[0]?.charCount||(answers[0]?.answer||'').length||0,q2:answers[1]?.answer||'',c2:answers[1]?.charCount||0,q3:answers[2]?.answer||'',c3:answers[2]?.charCount||0,q4:answers[3]?.answer||'',c4:answers[3]?.charCount||(answers[3]?.answer||'').length||0,q5:answers[4]?.answer||'',c5:answers[4]?.charCount||0,q6:answers[5]?.answer||'',c6:answers[5]?.charCount||0,q7:Number(answers[6]?.answer||5),totalChars:[0,1,2,3,4,5].reduce((s,i)=>s+(Number(answers[i]?.charCount)||String(answers[i]?.answer||'').length),0)}}];"
+      },
+      "id": "code-s1-ex",
+      "name": "Extract Stage1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Review Sessions",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "at-s1-sess",
+      "name": "AT Search Sessions",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        280
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const pl=$('Extract Stage1').item.json;const match=items.find(i=>{const f=i.json.fields||{};if(String(f.Month)!==String(pl.month)||Number(f.Year)!==pl.year)return false;const emp=f.Employee;if(!emp)return false;const ids=Array.isArray(emp)?emp.map(e=>typeof e==='object'?e.id:e):[emp];return ids.includes(pl.employeeId);});return [{json:{...pl,existingSessionId:match?match.json.id:null}}];"
+      },
+      "id": "code-s1-find",
+      "name": "Find Or New Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.existingSessionId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-s1",
+      "name": "Session Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        960,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Review Sessions",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Employee": "={{ [$('Find Or New Session').item.json.employeeId] }}",
+            "Month": "={{ $('Find Or New Session').item.json.month }}",
+            "Year": "={{ $('Find Or New Session').item.json.year }}",
+            "Status": "In Progress",
+            "Started At": "={{ $('Find Or New Session').item.json.submittedAt }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Employee",
+              "displayName": "Employee",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Month",
+              "displayName": "Month",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Year",
+              "displayName": "Year",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Started At",
+              "displayName": "Started At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s1-new",
+      "name": "AT Create Session",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        160
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const pl=$('Find Or New Session').item.json;const sid=pl.existingSessionId||$input.first().json.id;return [{json:{...pl,sessionId:sid}}];"
+      },
+      "id": "code-s1-sid",
+      "name": "Resolve Session Id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Stage 1 Self-Assessments",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Session": "={{ [$json.sessionId] }}",
+            "Employee Name": "={{ $json.employeeName }}",
+            "Month": "={{ $json.month }}",
+            "Year": "={{ $json.year }}",
+            "Q1 Overall Performance": "={{ $json.q1 }}",
+            "Q1 Char Count": "={{ $json.c1 }}",
+            "Q2 Biggest Wins": "={{ $json.q2 }}",
+            "Q2 Char Count": "={{ $json.c2 }}",
+            "Q3 What Went Wrong": "={{ $json.q3 }}",
+            "Q3 Char Count": "={{ $json.c3 }}",
+            "Q4 Done Differently": "={{ $json.q4 }}",
+            "Q4 Char Count": "={{ $json.c4 }}",
+            "Q5 Projects Consuming Time": "={{ $json.q5 }}",
+            "Q5 Char Count": "={{ $json.c5 }}",
+            "Q6 Where Stuck": "={{ $json.q6 }}",
+            "Q6 Char Count": "={{ $json.c6 }}",
+            "Q7 Self Rating": "={{ $json.q7 }}",
+            "Total Char Count": "={{ $json.totalChars }}",
+            "Time Spent Seconds": "={{ $json.timeSpentSeconds }}",
+            "Raw JSON": "={{ JSON.stringify($json.answers) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Session",
+              "displayName": "Session",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Employee Name",
+              "displayName": "Employee Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Month",
+              "displayName": "Month",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Year",
+              "displayName": "Year",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q1 Overall Performance",
+              "displayName": "Q1 Overall Performance",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q1 Char Count",
+              "displayName": "Q1 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q2 Biggest Wins",
+              "displayName": "Q2 Biggest Wins",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q2 Char Count",
+              "displayName": "Q2 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q3 What Went Wrong",
+              "displayName": "Q3 What Went Wrong",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q3 Char Count",
+              "displayName": "Q3 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q4 Done Differently",
+              "displayName": "Q4 Done Differently",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q4 Char Count",
+              "displayName": "Q4 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q5 Projects Consuming Time",
+              "displayName": "Q5 Projects Consuming Time",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q5 Char Count",
+              "displayName": "Q5 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q6 Where Stuck",
+              "displayName": "Q6 Where Stuck",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q6 Char Count",
+              "displayName": "Q6 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q7 Self Rating",
+              "displayName": "Q7 Self Rating",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Total Char Count",
+              "displayName": "Total Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Time Spent Seconds",
+              "displayName": "Time Spent Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Raw JSON",
+              "displayName": "Raw JSON",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s1-rec",
+      "name": "AT Create Stage1",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        280
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Review Sessions",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Resolve Session Id').item.json.sessionId }}",
+            "Status": "In Progress",
+            "Stage 1 Time (Seconds)": "={{ $('Resolve Session Id').item.json.timeSpentSeconds }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Stage 1 Time (Seconds)",
+              "displayName": "Stage 1 Time (Seconds)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s1-upd",
+      "name": "AT Update Session S1",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        280
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=$('Resolve Session Id').item.json.sessionId;const created=$('AT Create Stage1').item.json||{};const stage1Id=created.id||null;const err=created.error?.message||created.message;return [{json:{success:Boolean(sid&&stage1Id),sessionId:sid||null,stage1Id,error:stage1Id?undefined:(err||'Airtable Stage 1 write failed')}}];"
+      },
+      "id": "code-s1-out",
+      "name": "Stage1 Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "res-s1",
+      "name": "Respond Stage1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ingest-stage2-file",
+        "responseMode": "responseNode",
+        "options": {
+          "binaryData": true
+        }
+      },
+      "id": "wh-ing",
+      "name": "WH Ingest File",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        560
+      ],
+      "webhookId": "ingest-stage2-file-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item=$input.first();const b=item.json.body||item.json;const bin=item.binary||{};const key=Object.keys(bin)[0]||'';const file=key?bin[key]:null;const json={sessionId:b.sessionId,employeeId:b.employeeId,name:b.name||file?.fileName||'untitled',type:b.type||file?.mimeType||'application/pdf',size:Number(b.size||file?.fileSize||0),url:b.url||'',hasBinary:!!file,submittedAt:new Date().toISOString()};return [{json,binary:file?{data:file}:{}}];"
+      },
+      "id": "code-ing-ex",
+      "name": "Extract File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "^rec[A-Za-z0-9]{10,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-ing-sid",
+      "name": "Ingest Session Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        360,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=String($json.sessionId||'');const ok=/^rec[A-Za-z0-9]{10,}$/.test(sid);return [{json:{success:false,error:'sessionId must be a real Airtable Review Sessions record id from submit-stage1',sessionId:sid||null}}];"
+      },
+      "id": "code-ing-bad",
+      "name": "Ingest Invalid Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const json=$input.first().json;const src=$('Extract File').first();return [{json,binary:src.binary||{}}];"
+      },
+      "id": "code-ing-bin",
+      "name": "Attach File Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "PARSE_WEBHOOK_URL",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "fileName",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "name": "fileType",
+              "value": "={{ $json.type }}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{ $json.sessionId }}"
+            },
+            {
+              "name": "employeeId",
+              "value": "={{ $json.employeeId }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "id": "http-parse",
+      "name": "Call Parse Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        560
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw=$input.first().json;const meta=$('Extract File').item.json;let text='';try{text=raw.text||raw.parsedText||raw.markdown||raw.content||raw.data||(typeof raw==='string'?raw:JSON.stringify(raw));}catch(e){text='';}if(String(text).includes('PARSE_WEBHOOK_URL'))text='';const ok=!!String(text).trim()&&meta.hasBinary;return [{json:{sessionId:meta.sessionId,employeeId:meta.employeeId,name:meta.name,type:meta.type,size:meta.size,url:meta.url,parseRaw:String(text).slice(0,100000),parsed:ok,parseStatus:ok?'ok':(meta.hasBinary?'failed':'no-binary')}}];"
+      },
+      "id": "code-ing-parse",
+      "name": "Normalize Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Stage 2 Files",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "File Name": "={{ $json.name }}",
+            "Session": "={{ [$json.sessionId] }}",
+            "Employee Name": "={{ $json.employeeId }}",
+            "File URL": "={{ $json.url }}",
+            "File Type": "={{ $json.type }}",
+            "File Size KB": "={{ Math.round(($json.size||0)/1024) }}",
+            "Parse Status": "={{ $json.parseStatus }}",
+            "Parse Raw": "={{ $json.parseRaw }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "File Name",
+              "displayName": "File Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Session",
+              "displayName": "Session",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Employee Name",
+              "displayName": "Employee Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "File URL",
+              "displayName": "File URL",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "File Type",
+              "displayName": "File Type",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "File Size KB",
+              "displayName": "File Size KB",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Parse Status",
+              "displayName": "Parse Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Parse Raw",
+              "displayName": "Parse Raw",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-ing-file",
+      "name": "AT Create File",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        560
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const p=$('Normalize Parse').item.json;const created=$('AT Create File').item.json||{};return [{json:{success:true,fileId:created.id||null,parsed:p.parsed,parseStatus:p.parseStatus,hasBinary:!!p.parseRaw||p.parseStatus!=='no-binary'}}];"
+      },
+      "id": "code-ing-out",
+      "name": "Ingest Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "res-ing",
+      "name": "Respond Ingest",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stage2-summary",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-s2s",
+      "name": "WH Stage2 Summary",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        840
+      ],
+      "webhookId": "stage2-summary-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body||$input.first().json;return [{json:{sessionId:b.sessionId,employeeId:b.employeeId,stage1:b.stage1||{}}}];"
+      },
+      "id": "code-s2s-ex",
+      "name": "Extract Summary Req",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Stage 2 Files",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "at-s2s-files",
+      "name": "AT Files For Session",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        840
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const meta=$('Extract Summary Req').item.json;const s1=meta.stage1||{};const files=items.map(i=>i.json.fields||i.json).filter(f=>{const sess=f.Session;if(!sess)return true;const ids=Array.isArray(sess)?sess.map(x=>x.id||x):[sess];return ids.includes(meta.sessionId)||true;});const evidence=files.map((f,i)=>`FILE ${i+1}: ${f['File Name']||f.Name||'unknown'}\\nParse status: ${f['Parse Status']||'n/a'}\\nTEXT:\\n${String(f['Parse Raw']||'').slice(0,4000)}`).join('\\n\\n---\\n\\n');const claims=`STAGE 1 CLAIMS (treat as unverified; challenge against files):\\nOverall: ${s1.q1||''}\\nWins: ${s1.q2||''}\\nWrong: ${s1.q3||''}\\nBetter: ${s1.q4||''}\\nProjects: ${s1.q5||''}\\nStuck: ${s1.q6||''}\\nSelf-rating: ${s1.q7||''}/10`;const prompt=`You are a sceptical performance analyst at Seven Fincorp (fintech, Bengaluru). Use parsed work files as the source of truth. Do NOT politely agree with Stage 1. Hunt gaps.\\n\\n${claims}\\n\\nPARSED WORK (weekly/work context — use as NEGATIVE BIAS / challenge material):\\n${evidence||'(no parsed text)'}\\n\\nReturn ONLY JSON:\\n{\"projectsIdentified\":[\"...\"],\"keyOutputs\":[\"...\"],\"contributionLevel\":\"High|Medium|Low\",\"summary\":\"2-3 paragraphs of what was actually produced\",\"notes\":\"1-2 sentences on quality/gaps\",\"contradictions\":[\"specific Stage 1 claim vs file evidence\"]}`;return [{json:{prompt,sessionId:meta.sessionId}}];"
+      },
+      "id": "code-s2s-prompt",
+      "name": "Build Summary Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "systemMessage": "You are a sceptical performance analyst at Seven Fincorp. Use parsed files as truth. Challenge Stage 1. Return ONLY JSON."
+        }
+      },
+      "id": "agent-s2s",
+      "name": "AI Agent Stage2",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        960,
+        840
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-20250514",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "lm-s2s",
+      "name": "Claude Stage2",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        960,
+        980
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp=$input.first().json;const t=resp.output||resp.text||resp.choices?.[0]?.message?.content||resp.content?.[0]?.text||(typeof resp==='string'?resp:'{}');let r;try{r=JSON.parse(String(t).replace(/\\`\\`\\`json/g,'').replace(/\\`\\`\\`/g,'').trim());}catch(e){r={projectsIdentified:[],keyOutputs:[],contributionLevel:'Medium',summary:String(t),notes:'',contradictions:[]};}if(typeof r.projectsIdentified==='string')r.projectsIdentified=r.projectsIdentified.split(',').map(s=>s.trim()).filter(Boolean);if(typeof r.keyOutputs==='string')r.keyOutputs=r.keyOutputs.split(',').map(s=>s.trim()).filter(Boolean);r.sessionId=$('Build Summary Prompt').item.json.sessionId;return [{json:r}];"
+      },
+      "id": "code-s2s-parse",
+      "name": "Parse Summary JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "res-s2s",
+      "name": "Respond Summary",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "submit-stage2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-s2",
+      "name": "WH Submit Stage2",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1120
+      ],
+      "webhookId": "submit-stage2-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body||$input.first().json;return [{json:{sessionId:b.sessionId,employeeId:b.employeeId,summary:b.summary||'',edited:!!b.edited,projectsIdentified:typeof b.projectsIdentified==='string'?b.projectsIdentified:(b.projectsIdentified||[]).join(', '),keyOutputs:typeof b.keyOutputs==='string'?b.keyOutputs:(b.keyOutputs||[]).join(', '),contributionLevel:b.contributionLevel||'Medium',aiObservations:b.aiObservations||'',timeSpentSeconds:Number(b.timeSpentSeconds)||0}}];"
+      },
+      "id": "code-s2-ex",
+      "name": "Extract Stage2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "^rec[A-Za-z0-9]{10,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-s2-sid",
+      "name": "S2 Session Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        360,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=String($json.sessionId||'');const ok=/^rec[A-Za-z0-9]{10,}$/.test(sid);return [{json:{success:false,error:'sessionId must be a real Airtable Review Sessions record id from submit-stage1',sessionId:sid||null}}];"
+      },
+      "id": "code-s2-bad",
+      "name": "S2 Invalid Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        1240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Stage 2 Work Evidences",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Session": "={{ [$json.sessionId] }}",
+            "AI Raw Summary": "={{ $json.summary }}",
+            "Employee Edited Summary": "={{ $json.edited }}",
+            "Final Summary": "={{ $json.summary }}",
+            "Projects Identified": "={{ $json.projectsIdentified }}",
+            "Key Outputs": "={{ $json.keyOutputs }}",
+            "Contribution Level": "={{ $json.contributionLevel }}",
+            "AI Observations": "={{ $json.aiObservations }}",
+            "Confirmation Accepted": true,
+            "Time Spent Seconds": "={{ $json.timeSpentSeconds }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Session",
+              "displayName": "Session",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AI Raw Summary",
+              "displayName": "AI Raw Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Employee Edited Summary",
+              "displayName": "Employee Edited Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Final Summary",
+              "displayName": "Final Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Projects Identified",
+              "displayName": "Projects Identified",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Key Outputs",
+              "displayName": "Key Outputs",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Contribution Level",
+              "displayName": "Contribution Level",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "AI Observations",
+              "displayName": "AI Observations",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Confirmation Accepted",
+              "displayName": "Confirmation Accepted",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Time Spent Seconds",
+              "displayName": "Time Spent Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s2-ev",
+      "name": "AT Create Evidence",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        1120
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Review Sessions",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Extract Stage2').item.json.sessionId }}",
+            "Status": "In Progress",
+            "Stage 2 Time (Seconds)": "={{ $('Extract Stage2').item.json.timeSpentSeconds }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Stage 2 Time (Seconds)",
+              "displayName": "Stage 2 Time (Seconds)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s2-upd",
+      "name": "AT Update Session S2",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        1120
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{success:true,stage2Id:$('AT Create Evidence').item.json.id}}];"
+      },
+      "id": "code-s2-out",
+      "name": "Stage2 Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "res-s2",
+      "name": "Respond Stage2",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stage3-questions",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-s3q",
+      "name": "WH Stage3 Questions",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1400
+      ],
+      "webhookId": "stage3-questions-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body||$input.first().json;const projects=String(b.projectsIdentified||'');const count=projects.split(',').map(s=>s.trim()).filter(Boolean).length;const low=count<3;const prompt=`You are a sharp interviewer at Seven Fincorp. Generate EXACTLY 10 questions tied to this employee's Stage 1 and Stage 2. Not generic HR.\\n\\nSTAGE 1:\\n${b.stage1Summary||''}\\n\\nSTAGE 2 SUMMARY:\\n${b.stage2Summary||''}\\n\\nProjects (${count}): ${projects}\\nMeaningful-project threshold: ${low?'UNDER 3 — Q9 and Q10 must be the fixed reflection questions below':'3+ projects — Q9/Q10 must be project-specific'}\\n\\nQ1 Reasoning (why on a concrete artifact)\\nQ2-Q3 Gap Analysis (Stage 1 vs evidence)\\nQ4-Q6 Advice / how else to approach it\\nQ7-Q8 Project deep dive\\nQ9-Q10 ${low?'FIXED: (q9) What is the most important thing you learned this month and how will it change how you work? (q10) What does this month reveal about how you work at your best and where you still have room to grow?':'project-level learn / do differently'}\\n\\nReturn ONLY a JSON array of 10 objects {id,question,category} ids q1..q10. Categories: Reasoning|Gap Analysis|Decision Making|Advice|Project Deep Dive|Reflection`;return [{json:{prompt,sessionId:b.sessionId,lowProjectCount:low}}];"
+      },
+      "id": "code-s3q-ex",
+      "name": "Build Questions Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "systemMessage": "You are a sharp interviewer at Seven Fincorp. Return ONLY a JSON array of 10 {id,question,category} objects. No markdown."
+        }
+      },
+      "id": "agent-s3q",
+      "name": "AI Agent Stage3",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        480,
+        1400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-20250514",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "lm-s3q",
+      "name": "Claude Stage3",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        480,
+        1540
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw=$input.first().json;const t=raw.output||raw.text||raw.choices?.[0]?.message?.content||'[]';const fallback=[{id:'q1',question:'Describe the most significant decision you made this month and why you made it.',category:'Reasoning'},{id:'q2',question:'Walk me through a moment where things did not go as planned. What happened?',category:'Gap Analysis'},{id:'q3',question:'Is there something you said you would do that the work files do not support? Explain.',category:'Gap Analysis'},{id:'q4',question:'How would you handle a similar situation differently next time?',category:'Decision Making'},{id:'q5',question:'What advice would you give a colleague facing the same challenge?',category:'Advice'},{id:'q6',question:'If you were advising someone else on this problem, what would you recommend?',category:'Advice'},{id:'q7',question:'Pick your most important project. What was your specific contribution?',category:'Project Deep Dive'},{id:'q8',question:'What went wrong in your most challenging project and what caused it?',category:'Project Deep Dive'},{id:'q9',question:'What is the most important thing you learned this month and how will it change how you work?',category:'Reflection'},{id:'q10',question:'What does this month reveal about how you work at your best and where you still have room to grow?',category:'Reflection'}];let questions;try{questions=JSON.parse(String(t).replace(/\\`\\`\\`json/g,'').replace(/\\`\\`\\`/g,'').trim());if(!Array.isArray(questions)||questions.length<8)throw new Error('bad');}catch(e){questions=fallback;}if($('Build Questions Prompt').item.json.lowProjectCount){questions[8]=fallback[8];questions[9]=fallback[9];}return [{json:{questions:questions.slice(0,10),sessionId:$('Build Questions Prompt').item.json.sessionId}}];"
+      },
+      "id": "code-s3q-parse",
+      "name": "Parse Questions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        1400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "res-s3q",
+      "name": "Respond Questions",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        1400
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "submit-stage3",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-s3",
+      "name": "WH Submit Stage3",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1680
+      ],
+      "webhookId": "submit-stage3-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body||$input.first().json;const qa=b.qa||[];const totalPaste=qa.reduce((s,q)=>s+(q.pasteAttempts||0),0);const m={sessionId:b.sessionId,employeeId:b.employeeId,contextUsed:b.contextUsed||'',totalPasteAttempts:totalPaste,highPasteFlag:totalPaste>5,timeSpentSeconds:Number(b.timeSpentSeconds)||0,questionsJson:JSON.stringify(qa)};qa.forEach((q,i)=>{const n=i+1;m['Q'+n+' Question']=q.question||'';m['Q'+n+' Category']=q.category||'';m['Q'+n+' Answer']=q.answer||'';m['Q'+n+' Char Count']=q.charCount||(q.answer||'').length;m['Q'+n+' Time Seconds']=q.timeSeconds||0;m['Q'+n+' Paste Attempts']=q.pasteAttempts||0;});return [{json:m}];"
+      },
+      "id": "code-s3-ex",
+      "name": "Map Stage3 QA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1680
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "^rec[A-Za-z0-9]{10,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-s3-sid",
+      "name": "S3 Session Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        360,
+        1680
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=String($json.sessionId||'');const ok=/^rec[A-Za-z0-9]{10,}$/.test(sid);return [{json:{success:false,error:'sessionId must be a real Airtable Review Sessions record id from submit-stage1',sessionId:sid||null}}];"
+      },
+      "id": "code-s3-bad",
+      "name": "S3 Invalid Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        1800
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Stage 3 Interviews",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Session": "={{ [$json.sessionId] }}",
+            "Questions JSON": "={{ $json.questionsJson }}",
+            "Context Used": "={{ $json.contextUsed }}",
+            "Q1 Question": "={{ $json[\"Q1 Question\"] }}",
+            "Q1 Category": "={{ $json[\"Q1 Category\"] }}",
+            "Q1 Answer": "={{ $json[\"Q1 Answer\"] }}",
+            "Q1 Char Count": "={{ $json[\"Q1 Char Count\"] }}",
+            "Q1 Time Seconds": "={{ $json[\"Q1 Time Seconds\"] }}",
+            "Q1 Paste Attempts": "={{ $json[\"Q1 Paste Attempts\"] }}",
+            "Q2 Question": "={{ $json[\"Q2 Question\"] }}",
+            "Q2 Category": "={{ $json[\"Q2 Category\"] }}",
+            "Q2 Answer": "={{ $json[\"Q2 Answer\"] }}",
+            "Q2 Char Count": "={{ $json[\"Q2 Char Count\"] }}",
+            "Q2 Time Seconds": "={{ $json[\"Q2 Time Seconds\"] }}",
+            "Q2 Paste Attempts": "={{ $json[\"Q2 Paste Attempts\"] }}",
+            "Q3 Question": "={{ $json[\"Q3 Question\"] }}",
+            "Q3 Category": "={{ $json[\"Q3 Category\"] }}",
+            "Q3 Answer": "={{ $json[\"Q3 Answer\"] }}",
+            "Q3 Char Count": "={{ $json[\"Q3 Char Count\"] }}",
+            "Q3 Time Seconds": "={{ $json[\"Q3 Time Seconds\"] }}",
+            "Q3 Paste Attempts": "={{ $json[\"Q3 Paste Attempts\"] }}",
+            "Q4 Question": "={{ $json[\"Q4 Question\"] }}",
+            "Q4 Category": "={{ $json[\"Q4 Category\"] }}",
+            "Q4 Answer": "={{ $json[\"Q4 Answer\"] }}",
+            "Q4 Char Count": "={{ $json[\"Q4 Char Count\"] }}",
+            "Q4 Time Seconds": "={{ $json[\"Q4 Time Seconds\"] }}",
+            "Q4 Paste Attempts": "={{ $json[\"Q4 Paste Attempts\"] }}",
+            "Q5 Question": "={{ $json[\"Q5 Question\"] }}",
+            "Q5 Category": "={{ $json[\"Q5 Category\"] }}",
+            "Q5 Answer": "={{ $json[\"Q5 Answer\"] }}",
+            "Q5 Char Count": "={{ $json[\"Q5 Char Count\"] }}",
+            "Q5 Time Seconds": "={{ $json[\"Q5 Time Seconds\"] }}",
+            "Q5 Paste Attempts": "={{ $json[\"Q5 Paste Attempts\"] }}",
+            "Q6 Question": "={{ $json[\"Q6 Question\"] }}",
+            "Q6 Category": "={{ $json[\"Q6 Category\"] }}",
+            "Q6 Answer": "={{ $json[\"Q6 Answer\"] }}",
+            "Q6 Char Count": "={{ $json[\"Q6 Char Count\"] }}",
+            "Q6 Time Seconds": "={{ $json[\"Q6 Time Seconds\"] }}",
+            "Q6 Paste Attempts": "={{ $json[\"Q6 Paste Attempts\"] }}",
+            "Q7 Question": "={{ $json[\"Q7 Question\"] }}",
+            "Q7 Category": "={{ $json[\"Q7 Category\"] }}",
+            "Q7 Answer": "={{ $json[\"Q7 Answer\"] }}",
+            "Q7 Char Count": "={{ $json[\"Q7 Char Count\"] }}",
+            "Q7 Time Seconds": "={{ $json[\"Q7 Time Seconds\"] }}",
+            "Q7 Paste Attempts": "={{ $json[\"Q7 Paste Attempts\"] }}",
+            "Q8 Question": "={{ $json[\"Q8 Question\"] }}",
+            "Q8 Category": "={{ $json[\"Q8 Category\"] }}",
+            "Q8 Answer": "={{ $json[\"Q8 Answer\"] }}",
+            "Q8 Char Count": "={{ $json[\"Q8 Char Count\"] }}",
+            "Q8 Time Seconds": "={{ $json[\"Q8 Time Seconds\"] }}",
+            "Q8 Paste Attempts": "={{ $json[\"Q8 Paste Attempts\"] }}",
+            "Q9 Question": "={{ $json[\"Q9 Question\"] }}",
+            "Q9 Category": "={{ $json[\"Q9 Category\"] }}",
+            "Q9 Answer": "={{ $json[\"Q9 Answer\"] }}",
+            "Q9 Char Count": "={{ $json[\"Q9 Char Count\"] }}",
+            "Q9 Time Seconds": "={{ $json[\"Q9 Time Seconds\"] }}",
+            "Q9 Paste Attempts": "={{ $json[\"Q9 Paste Attempts\"] }}",
+            "Q10 Question": "={{ $json[\"Q10 Question\"] }}",
+            "Q10 Category": "={{ $json[\"Q10 Category\"] }}",
+            "Q10 Answer": "={{ $json[\"Q10 Answer\"] }}",
+            "Q10 Char Count": "={{ $json[\"Q10 Char Count\"] }}",
+            "Q10 Time Seconds": "={{ $json[\"Q10 Time Seconds\"] }}",
+            "Q10 Paste Attempts": "={{ $json[\"Q10 Paste Attempts\"] }}",
+            "Total Paste Attempts": "={{ $json.totalPasteAttempts }}",
+            "High Paste Flag": "={{ $json.highPasteFlag }}",
+            "Time Spent Seconds": "={{ $json.timeSpentSeconds }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Session",
+              "displayName": "Session",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Questions JSON",
+              "displayName": "Questions JSON",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Context Used",
+              "displayName": "Context Used",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q1 Question",
+              "displayName": "Q1 Question",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q1 Category",
+              "displayName": "Q1 Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q1 Answer",
+              "displayName": "Q1 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q1 Char Count",
+              "displayName": "Q1 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q1 Time Seconds",
+              "displayName": "Q1 Time Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q1 Paste Attempts",
+              "displayName": "Q1 Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q2 Question",
+              "displayName": "Q2 Question",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q2 Category",
+              "displayName": "Q2 Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q2 Answer",
+              "displayName": "Q2 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q2 Char Count",
+              "displayName": "Q2 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q2 Time Seconds",
+              "displayName": "Q2 Time Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q2 Paste Attempts",
+              "displayName": "Q2 Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q3 Question",
+              "displayName": "Q3 Question",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q3 Category",
+              "displayName": "Q3 Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q3 Answer",
+              "displayName": "Q3 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q3 Char Count",
+              "displayName": "Q3 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q3 Time Seconds",
+              "displayName": "Q3 Time Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q3 Paste Attempts",
+              "displayName": "Q3 Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q4 Question",
+              "displayName": "Q4 Question",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q4 Category",
+              "displayName": "Q4 Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q4 Answer",
+              "displayName": "Q4 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q4 Char Count",
+              "displayName": "Q4 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q4 Time Seconds",
+              "displayName": "Q4 Time Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q4 Paste Attempts",
+              "displayName": "Q4 Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q5 Question",
+              "displayName": "Q5 Question",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q5 Category",
+              "displayName": "Q5 Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q5 Answer",
+              "displayName": "Q5 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q5 Char Count",
+              "displayName": "Q5 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q5 Time Seconds",
+              "displayName": "Q5 Time Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q5 Paste Attempts",
+              "displayName": "Q5 Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q6 Question",
+              "displayName": "Q6 Question",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q6 Category",
+              "displayName": "Q6 Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q6 Answer",
+              "displayName": "Q6 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q6 Char Count",
+              "displayName": "Q6 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q6 Time Seconds",
+              "displayName": "Q6 Time Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q6 Paste Attempts",
+              "displayName": "Q6 Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q7 Question",
+              "displayName": "Q7 Question",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q7 Category",
+              "displayName": "Q7 Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q7 Answer",
+              "displayName": "Q7 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q7 Char Count",
+              "displayName": "Q7 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q7 Time Seconds",
+              "displayName": "Q7 Time Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q7 Paste Attempts",
+              "displayName": "Q7 Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q8 Question",
+              "displayName": "Q8 Question",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q8 Category",
+              "displayName": "Q8 Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q8 Answer",
+              "displayName": "Q8 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q8 Char Count",
+              "displayName": "Q8 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q8 Time Seconds",
+              "displayName": "Q8 Time Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q8 Paste Attempts",
+              "displayName": "Q8 Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q9 Question",
+              "displayName": "Q9 Question",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q9 Category",
+              "displayName": "Q9 Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q9 Answer",
+              "displayName": "Q9 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q9 Char Count",
+              "displayName": "Q9 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q9 Time Seconds",
+              "displayName": "Q9 Time Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q9 Paste Attempts",
+              "displayName": "Q9 Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q10 Question",
+              "displayName": "Q10 Question",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q10 Category",
+              "displayName": "Q10 Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q10 Answer",
+              "displayName": "Q10 Answer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q10 Char Count",
+              "displayName": "Q10 Char Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q10 Time Seconds",
+              "displayName": "Q10 Time Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Q10 Paste Attempts",
+              "displayName": "Q10 Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Total Paste Attempts",
+              "displayName": "Total Paste Attempts",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "High Paste Flag",
+              "displayName": "High Paste Flag",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Time Spent Seconds",
+              "displayName": "Time Spent Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s3",
+      "name": "AT Create Stage3",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        1680
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Review Sessions",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Map Stage3 QA').item.json.sessionId }}",
+            "Status": "In Progress",
+            "Stage 3 Time (Seconds)": "={{ $('Map Stage3 QA').item.json.timeSpentSeconds }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Stage 3 Time (Seconds)",
+              "displayName": "Stage 3 Time (Seconds)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s3-upd",
+      "name": "AT Update Session S3",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        1680
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const m=$('Map Stage3 QA').item.json;return [{json:{success:true,stage3Id:$('AT Create Stage3').item.json.id,pasteAttempts:m.totalPasteAttempts,flagged:m.highPasteFlag}}];"
+      },
+      "id": "code-s3-out",
+      "name": "Stage3 Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        1680
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "res-s3",
+      "name": "Respond Stage3",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        1680
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "submit-stage4",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-s4",
+      "name": "WH Submit Stage4",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1960
+      ],
+      "webhookId": "submit-stage4-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body||$input.first().json;const peers=b.peerFeedback||[];const fields=['respondsOnTime','helpsWithOwnTasks','helpsBeyondScope','cooperativeEnvironment','communicationQuality','professionalEtiquette','emailEtiquette','whatsappEtiquette'];const avgs=peers.filter(p=>p.interaction!==false).map(p=>{const v=fields.map(f=>Number(p.ratings?.[f]||5));return v.reduce((a,c)=>a+c,0)/v.length;});const allUniform=avgs.length>1&&(Math.max(...avgs)-Math.min(...avgs))<1.0;const processed=peers.map(peer=>{const r=peer.ratings||{};const noI=peer.interaction===false;const v=fields.map(f=>Number(r[f]||5));const allLow=!noI&&v.every(x=>x<=2);const allHigh=!noI&&v.every(x=>x>=9);const biasFlag=allLow||allHigh||allUniform;let biasType='None';if(allLow)biasType='All Low';else if(allHigh)biasType='All High';else if(allUniform)biasType='Uniform';const avg=noI?0:v.reduce((a,c)=>a+c,0)/v.length;return {sessionId:b.sessionId,reviewerName:b.employeeName||'',revieweeId:peer.colleagueId,month:b.month||'',didNotInteract:noI,respondsOnTime:noI?null:(r.respondsOnTime||5),helpsWithOwnTasks:noI?null:(r.helpsWithOwnTasks||5),helpsBeyondScope:noI?null:(r.helpsBeyondScope||5),cooperativeEnvironment:noI?null:(r.cooperativeEnvironment||5),communicationQuality:noI?null:(r.communicationQuality||5),professionalEtiquette:noI?null:(r.professionalEtiquette||5),emailEtiquette:noI?null:(r.emailEtiquette||5),whatsappEtiquette:noI?null:(r.whatsappEtiquette||5),averageScore:noI?0:Math.round(avg*10)/10,biasFlag,biasType,biasReason:allLow?'All scores <= 2':allHigh?'All scores >= 9':allUniform?'Ratings uniform across all colleagues':'',biasWarningShown:!!peer.biasWarningShown,timeSpentSeconds:Number(b.timeSpentSeconds)||0};});return processed.map(p=>({json:p}));"
+      },
+      "id": "code-s4-bias",
+      "name": "Bias Detection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1960
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "^rec[A-Za-z0-9]{10,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-s4-sid",
+      "name": "S4 Session Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        360,
+        1960
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=String($json.sessionId||'');const ok=/^rec[A-Za-z0-9]{10,}$/.test(sid);return [{json:{success:false,error:'sessionId must be a real Airtable Review Sessions record id from submit-stage1',sessionId:sid||null}}];"
+      },
+      "id": "code-s4-bad",
+      "name": "S4 Invalid Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Stage 4 Peer Feedbacks",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Session": "={{ [$json.sessionId] }}",
+            "Reviewer Name": "={{ $json.reviewerName }}",
+            "Reviewee ID": "={{ $json.revieweeId }}",
+            "Did Not Interact": "={{ $json.didNotInteract }}",
+            "Responds On Time": "={{ $json.respondsOnTime }}",
+            "Helps With Own Tasks": "={{ $json.helpsWithOwnTasks }}",
+            "Helps Beyond Scope": "={{ $json.helpsBeyondScope }}",
+            "Cooperative Environment": "={{ $json.cooperativeEnvironment }}",
+            "Communication Quality": "={{ $json.communicationQuality }}",
+            "Professional Etiquette": "={{ $json.professionalEtiquette }}",
+            "Email Etiquette": "={{ $json.emailEtiquette }}",
+            "WhatsApp Etiquette": "={{ $json.whatsappEtiquette }}",
+            "Average Score": "={{ $json.averageScore }}",
+            "Bias Flag": "={{ $json.biasFlag }}",
+            "Bias Type": "={{ $json.biasType }}",
+            "Bias Reason": "={{ $json.biasReason }}",
+            "Bias Warning Shown": "={{ $json.biasWarningShown }}",
+            "Time Spent Seconds": "={{ $json.timeSpentSeconds }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Session",
+              "displayName": "Session",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reviewer Name",
+              "displayName": "Reviewer Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reviewee ID",
+              "displayName": "Reviewee ID",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Did Not Interact",
+              "displayName": "Did Not Interact",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Responds On Time",
+              "displayName": "Responds On Time",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Helps With Own Tasks",
+              "displayName": "Helps With Own Tasks",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Helps Beyond Scope",
+              "displayName": "Helps Beyond Scope",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Cooperative Environment",
+              "displayName": "Cooperative Environment",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Communication Quality",
+              "displayName": "Communication Quality",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Professional Etiquette",
+              "displayName": "Professional Etiquette",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email Etiquette",
+              "displayName": "Email Etiquette",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "WhatsApp Etiquette",
+              "displayName": "WhatsApp Etiquette",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Average Score",
+              "displayName": "Average Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Bias Flag",
+              "displayName": "Bias Flag",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Bias Type",
+              "displayName": "Bias Type",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Bias Reason",
+              "displayName": "Bias Reason",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Bias Warning Shown",
+              "displayName": "Bias Warning Shown",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Time Spent Seconds",
+              "displayName": "Time Spent Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s4",
+      "name": "AT Create Peer Rows",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        1960
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Review Sessions",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Bias Detection').first().json.sessionId }}",
+            "Status": "In Progress",
+            "Stage 4 Time (Seconds)": "={{ $('Bias Detection').first().json.timeSpentSeconds }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Stage 4 Time (Seconds)",
+              "displayName": "Stage 4 Time (Seconds)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s4-upd",
+      "name": "AT Update Session S4",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        1960
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{success:true}}];"
+      },
+      "id": "code-s4-out",
+      "name": "Stage4 Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        1960
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "res-s4",
+      "name": "Respond Stage4",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        1960
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-report",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-s5",
+      "name": "WH Generate Report",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        2240
+      ],
+      "webhookId": "generate-report-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body||$input.first().json;const s1=b.stage1||{};const s2=b.stage2||{};const s3=b.stage3||{};const s4=b.stage4||[];const s1t=`STAGE 1 (what they THINK)\\nOverall: ${s1.q1||''}\\nWins: ${s1.q2||''}\\nWrong: ${s1.q3||''}\\nBetter: ${s1.q4||''}\\nProjects: ${s1.q5||''}\\nStuck: ${s1.q6||''}\\nSelf-rating: ${s1.q7||'N/A'}/10`;const s2t=`STAGE 2 (what they PRODUCED — treat parsed evidence as challenge)\\nSummary: ${s2.finalSummary||''}\\nProjects: ${s2.projectsIdentified||''}\\nOutputs: ${s2.keyOutputs||''}\\nContribution: ${s2.contributionLevel||''}\\nEdited: ${s2.employeeEditedSummary?'Yes':'No'}\\nObservations: ${s2.aiObservations||''}`;const qa=(s3.qa||[]).map((q,i)=>`Q${i+1}[${q.category}]: ${q.question}\\nA: ${q.answer}`).join('\\n\\n');const s4t=s4.map(p=>{if(p.interaction===false)return `${p.colleagueName}: No interaction`;const r=p.ratings||{};const vals=Object.values(r).filter(Number.isFinite);const avg=vals.reduce((a,c)=>a+c,0)/Math.max(1,vals.length);return `${p.colleagueName}: avg ${avg.toFixed(1)}/10`;}).join('\\n');const prompt=`You are the AI performance evaluator for Seven Fincorp. Reconcile four views: (1) what they think (2) what files show (3) whether they understand it (4) how peers experience them. Do not inflate scores. Use Stage 2 evidence as negative bias against Stage 1.\\n\\nEmployee: ${b.employeeName||''} \\nRole: ${b.role||''} Dept: ${b.department||''} Period: ${b.month||''} ${b.year||''}\\n\\n${s1t}\\n\\n${s2t}\\n\\nSTAGE 3\\n${qa}\\n\\nSTAGE 4\\n${s4t}\\n\\nReturn ONLY JSON:\\n{\"overallScore\":0-100,\"dimensions\":[{\"name\":\"Quality of Work\",\"score\":0-10},{\"name\":\"Quantity of Output\",\"score\":0-10},{\"name\":\"Problem Solving\",\"score\":0-10},{\"name\":\"Ownership\",\"score\":0-10},{\"name\":\"Decision Making\",\"score\":0-10},{\"name\":\"Communication\",\"score\":0-10},{\"name\":\"Collaboration\",\"score\":0-10},{\"name\":\"Self-Awareness\",\"score\":0-10}],\"majorAchievements\":\"\",\"keyGaps\":\"\",\"developmentPriorities\":\"\",\"peerFeedbackSummary\":\"\",\"aiObservations\":\"\",\"fullReportMarkdown\":\"# Monthly Employee Performance Report\\n...\"}`;return [{json:{prompt,sessionId:b.sessionId,employeeId:b.employeeId,employeeName:b.employeeName,month:b.month,year:b.year,managerEmail:b.managerEmail||'',employeeEmail:b.employeeEmail||''}}];"
+      },
+      "id": "code-s5-prompt",
+      "name": "Build Report Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Employees",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "at-s5-emp",
+      "name": "AT Get Employee",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        2240
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const meta=$('Build Report Prompt').item.json;return [{json:{prompt:meta.prompt,sessionId:meta.sessionId}}];"
+      },
+      "id": "code-s5-pass",
+      "name": "Pass Report Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "systemMessage": "You are the AI performance evaluator for Seven Fincorp. Do not inflate scores. Return ONLY the JSON object requested."
+        }
+      },
+      "id": "agent-s5",
+      "name": "AI Agent Report",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        840,
+        2240
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-20250514",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "lm-s5",
+      "name": "Claude Report",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        840,
+        2380
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw=$input.first().json;const t=raw.output||raw.text||raw.choices?.[0]?.message?.content||'{}';const meta=$('Build Report Prompt').item.json;let r;try{r=JSON.parse(String(t).replace(/\\`\\`\\`json/g,'').replace(/\\`\\`\\`/g,'').trim());}catch(e){r={overallScore:70,dimensions:[{name:'Quality of Work',score:7},{name:'Quantity of Output',score:7},{name:'Problem Solving',score:7},{name:'Ownership',score:7},{name:'Decision Making',score:7},{name:'Communication',score:7},{name:'Collaboration',score:7},{name:'Self-Awareness',score:7}],majorAchievements:'Parse error.',keyGaps:'',developmentPriorities:'',peerFeedbackSummary:'',aiObservations:String(t),fullReportMarkdown:String(t)};}const dims=Array.isArray(r.dimensions)?r.dimensions:[];const dim=n=>(dims.find(d=>d.name===n)||{}).score||0;const empItems=$('AT Get Employee').all();const emp=empItems.map(i=>i.json).find(j=>(j.id||'')===meta.employeeId)||{};const f=emp.fields||emp;const managerEmail=f['Reporting To Email']||meta.managerEmail||'';const hr='HR_INBOX';return [{json:{...r,sessionId:meta.sessionId,employeeName:meta.employeeName,month:meta.month,year:meta.year,qualityOfWork:dim('Quality of Work'),quantityOfOutput:dim('Quantity of Output'),problemSolving:dim('Problem Solving'),ownership:dim('Ownership'),decisionMaking:dim('Decision Making'),communication:dim('Communication'),collaboration:dim('Collaboration'),selfAwareness:dim('Self-Awareness'),toEmail:[f.Email,managerEmail,hr].filter(Boolean).join(', '),subject:`Monthly review — ${meta.employeeName} — ${meta.month} ${meta.year}`,message:r.fullReportMarkdown||r.aiObservations||'',emailedTo:[f.Email,managerEmail,hr].filter(Boolean).join(', ')}}];"
+      },
+      "id": "code-s5-parse",
+      "name": "Parse Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "^rec[A-Za-z0-9]{10,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-s5-sid",
+      "name": "S5 Session Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        1140,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=String($json.sessionId||'');const ok=/^rec[A-Za-z0-9]{10,}$/.test(sid);return [{json:{success:false,error:'sessionId must be a real Airtable Review Sessions record id from submit-stage1',sessionId:sid||null}}];"
+      },
+      "id": "code-s5-bad",
+      "name": "S5 Invalid Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        2360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Stage 5 Reports",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Session": "={{ [$json.sessionId] }}",
+            "Employee Name": "={{ $json.employeeName }}",
+            "Month": "={{ $json.month }}",
+            "Year": "={{ $json.year }}",
+            "Overall Score": "={{ $json.overallScore }}",
+            "Quality of Work": "={{ $json.qualityOfWork }}",
+            "Quantity of Output": "={{ $json.quantityOfOutput }}",
+            "Problem Solving": "={{ $json.problemSolving }}",
+            "Ownership": "={{ $json.ownership }}",
+            "Decision Making": "={{ $json.decisionMaking }}",
+            "Communication": "={{ $json.communication }}",
+            "Collaboration": "={{ $json.collaboration }}",
+            "Self Awareness": "={{ $json.selfAwareness }}",
+            "Major Achievements": "={{ $json.majorAchievements }}",
+            "Key Gaps": "={{ $json.keyGaps }}",
+            "Development Priorities": "={{ $json.developmentPriorities }}",
+            "Peer Feedback Summary": "={{ $json.peerFeedbackSummary }}",
+            "Cross Stage Observations": "={{ $json.aiObservations }}",
+            "Full Report Markdown": "={{ $json.fullReportMarkdown }}",
+            "Model Used": "claude-sonnet-4-20250514",
+            "Emailed To": "={{ $json.emailedTo }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Session",
+              "displayName": "Session",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Employee Name",
+              "displayName": "Employee Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Month",
+              "displayName": "Month",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Year",
+              "displayName": "Year",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Overall Score",
+              "displayName": "Overall Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Quality of Work",
+              "displayName": "Quality of Work",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Quantity of Output",
+              "displayName": "Quantity of Output",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Problem Solving",
+              "displayName": "Problem Solving",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Ownership",
+              "displayName": "Ownership",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Decision Making",
+              "displayName": "Decision Making",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Communication",
+              "displayName": "Communication",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Collaboration",
+              "displayName": "Collaboration",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Self Awareness",
+              "displayName": "Self Awareness",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Major Achievements",
+              "displayName": "Major Achievements",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Key Gaps",
+              "displayName": "Key Gaps",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Development Priorities",
+              "displayName": "Development Priorities",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Peer Feedback Summary",
+              "displayName": "Peer Feedback Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Cross Stage Observations",
+              "displayName": "Cross Stage Observations",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Full Report Markdown",
+              "displayName": "Full Report Markdown",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Model Used",
+              "displayName": "Model Used",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Emailed To",
+              "displayName": "Emailed To",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s5-rep",
+      "name": "AT Create Report",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        2240
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Review Sessions",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Parse Report').item.json.sessionId }}",
+            "Status": "Completed",
+            "Final Score": "={{ $('Parse Report').item.json.overallScore }}",
+            "Completed At": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Final Score",
+              "displayName": "Final Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Completed At",
+              "displayName": "Completed At",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "at-s5-upd",
+      "name": "AT Complete Session",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        2240
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "reviews@sevenfincorp.in",
+        "toEmail": "={{ $json.toEmail }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "em-s5",
+      "name": "Email Manager HR",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1680,
+        2240
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$('Parse Report').item.json;return [{json:{overallScore:r.overallScore,dimensions:r.dimensions,majorAchievements:r.majorAchievements,keyGaps:r.keyGaps,developmentPriorities:r.developmentPriorities,peerFeedbackSummary:r.peerFeedbackSummary,aiObservations:r.aiObservations,fullReportMarkdown:r.fullReportMarkdown}}];"
+      },
+      "id": "code-s5-out",
+      "name": "Report Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "res-s5",
+      "name": "Respond Report",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2160,
+        2240
+      ]
+    }
+  ],
+  "connections": {
+    "WH Get Employees": {
+      "main": [
+        [
+          {
+            "node": "AT List Employees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT List Employees": {
+      "main": [
+        [
+          {
+            "node": "Format Employees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Employees": {
+      "main": [
+        [
+          {
+            "node": "Respond Employees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH Submit Stage1": {
+      "main": [
+        [
+          {
+            "node": "Extract Stage1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Stage1": {
+      "main": [
+        [
+          {
+            "node": "AT Search Sessions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Search Sessions": {
+      "main": [
+        [
+          {
+            "node": "Find Or New Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Or New Session": {
+      "main": [
+        [
+          {
+            "node": "Session Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Create Session": {
+      "main": [
+        [
+          {
+            "node": "Resolve Session Id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Session Id": {
+      "main": [
+        [
+          {
+            "node": "AT Create Stage1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Create Stage1": {
+      "main": [
+        [
+          {
+            "node": "AT Update Session S1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Update Session S1": {
+      "main": [
+        [
+          {
+            "node": "Stage1 Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage1 Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Stage1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH Ingest File": {
+      "main": [
+        [
+          {
+            "node": "Extract File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach File Binary": {
+      "main": [
+        [
+          {
+            "node": "Call Parse Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Parse Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parse": {
+      "main": [
+        [
+          {
+            "node": "AT Create File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Create File": {
+      "main": [
+        [
+          {
+            "node": "Ingest Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH Stage2 Summary": {
+      "main": [
+        [
+          {
+            "node": "Extract Summary Req",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Summary Req": {
+      "main": [
+        [
+          {
+            "node": "AT Files For Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Files For Session": {
+      "main": [
+        [
+          {
+            "node": "Build Summary Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Stage2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Stage2": {
+      "main": [
+        [
+          {
+            "node": "Parse Summary JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Summary JSON": {
+      "main": [
+        [
+          {
+            "node": "Respond Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH Submit Stage2": {
+      "main": [
+        [
+          {
+            "node": "Extract Stage2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Create Evidence": {
+      "main": [
+        [
+          {
+            "node": "AT Update Session S2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Update Session S2": {
+      "main": [
+        [
+          {
+            "node": "Stage2 Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage2 Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Stage2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH Stage3 Questions": {
+      "main": [
+        [
+          {
+            "node": "Build Questions Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Questions Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Stage3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Stage3": {
+      "main": [
+        [
+          {
+            "node": "Parse Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Questions": {
+      "main": [
+        [
+          {
+            "node": "Respond Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH Submit Stage3": {
+      "main": [
+        [
+          {
+            "node": "Map Stage3 QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Create Stage3": {
+      "main": [
+        [
+          {
+            "node": "AT Update Session S3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Update Session S3": {
+      "main": [
+        [
+          {
+            "node": "Stage3 Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage3 Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Stage3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH Submit Stage4": {
+      "main": [
+        [
+          {
+            "node": "Bias Detection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Create Peer Rows": {
+      "main": [
+        [
+          {
+            "node": "AT Update Session S4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Update Session S4": {
+      "main": [
+        [
+          {
+            "node": "Stage4 Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage4 Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Stage4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Build Report Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Report Prompt": {
+      "main": [
+        [
+          {
+            "node": "AT Get Employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Get Employee": {
+      "main": [
+        [
+          {
+            "node": "Pass Report Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass Report Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Report": {
+      "main": [
+        [
+          {
+            "node": "Parse Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Create Report": {
+      "main": [
+        [
+          {
+            "node": "AT Complete Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT Complete Session": {
+      "main": [
+        [
+          {
+            "node": "Email Manager HR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Manager HR": {
+      "main": [
+        [
+          {
+            "node": "Report Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Session Exists?": {
+      "main": [
+        [
+          {
+            "node": "Resolve Session Id",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AT Create Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract File": {
+      "main": [
+        [
+          {
+            "node": "Ingest Session Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Session Valid?": {
+      "main": [
+        [
+          {
+            "node": "Attach File Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ingest Invalid Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Invalid Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Stage2": {
+      "main": [
+        [
+          {
+            "node": "S2 Session Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S2 Session Valid?": {
+      "main": [
+        [
+          {
+            "node": "AT Create Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "S2 Invalid Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S2 Invalid Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Stage2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Stage3 QA": {
+      "main": [
+        [
+          {
+            "node": "S3 Session Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S3 Session Valid?": {
+      "main": [
+        [
+          {
+            "node": "AT Create Stage3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "S3 Invalid Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S3 Invalid Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Stage3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bias Detection": {
+      "main": [
+        [
+          {
+            "node": "S4 Session Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S4 Session Valid?": {
+      "main": [
+        [
+          {
+            "node": "AT Create Peer Rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "S4 Invalid Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S4 Invalid Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Stage4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Report": {
+      "main": [
+        [
+          {
+            "node": "S5 Session Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S5 Session Valid?": {
+      "main": [
+        [
+          {
+            "node": "AT Create Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "S5 Invalid Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S5 Invalid Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Stage2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Stage2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Stage3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Stage3",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Report": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Report",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ers-flow-v3",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "ERS"
+    }
+  ]
+}

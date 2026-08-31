@@ -1,0 +1,222 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "function pickSession(obj) {\n  if (!obj || typeof obj !== 'object') return null;\n  const body = obj.body || {};\n  const candidates = [obj.sessionId, body.sessionId, obj.Session, body.Session];\n  for (const c of candidates) {\n    if (typeof c === 'string' && /^rec[A-Za-z0-9]{10,}$/.test(c)) return c;\n    if (Array.isArray(c) && typeof c[0] === 'string' && /^rec[A-Za-z0-9]{10,}$/.test(c[0])) return c[0];\n  }\n  return null;\n}\nfunction nodeJson(name) {\n  try { return $(name).first().json || {}; } catch (e) { return {}; }\n}\n\nconst uploadResp = $input.first().json || {};\nconst jobId = uploadResp.body?.id || uploadResp.id || null;\nconst extracted = nodeJson('Extract File');\nconst webhook = nodeJson('WH Ingest File');\n\nreturn [{\n  json: {\n    bank_job_id: jobId,\n    bank_retry: 0,\n    bank_done: false,\n    bank_error: !jobId,\n    sessionId: pickSession(extracted) || pickSession(webhook) || null,\n    employeeId: extracted.employeeId || extracted.body?.employeeId || webhook.employeeId || webhook.body?.employeeId || null,\n    name: extracted.name || extracted.body?.name || webhook.name || webhook.body?.name || 'upload.pdf',\n    type: extracted.type || extracted.body?.type || webhook.type || webhook.body?.type || 'application/pdf',\n    fileId: null,\n  },\n}];"
+      },
+      "id": "cd439cde-f772-4bcb-9230-3b7e401b04cf",
+      "name": "Init Bank Poll2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3920, 3808]
+    },
+    {
+      "parameters": { "amount": 90 },
+      "id": "3171eda5-816f-4c2a-85dc-117c2e4f4f00",
+      "name": "Wait 30s — Bank Initial2",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [4144, 3808],
+      "webhookId": "wait-bank-init-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst incoming = item.json || {};\nreturn [{\n  json: {\n    ...incoming,\n    sessionId: incoming.sessionId || null,\n    bank_job_id: incoming.bank_job_id || incoming.job_id || incoming.id,\n  },\n}];"
+      },
+      "id": "06da4695-8723-402f-8bd0-ba00c16d160e",
+      "name": "Prep Bank Status Check2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4368, 3808]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.cloud.llamaindex.ai/api/v1/parsing/job/{{ $json.bank_job_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer PASTE_LLAMAINDEX_KEY" },
+            { "name": "accept", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "81bb1a6c-1991-471b-a604-adc3f4d70693",
+      "name": "Check Bank Parse Status2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4544, 3808]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "status-success",
+              "leftValue": "={{ $json.body.status || $json.status }}",
+              "rightValue": "SUCCESS",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f0abfab0-070c-4ce8-a72b-6b9d984f9e48",
+      "name": "Parse Job Done?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [4496, 3680]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.cloud.llamaindex.ai/api/v1/parsing/job/{{ $('Prep Bank Status Check2').item.json.bank_job_id }}/result/markdown",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer PASTE_LLAMAINDEX_KEY" },
+            { "name": "accept", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bb474411-aded-44ff-b72b-c4fe50f82baa",
+      "name": "Get Parse Markdown1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4736, 3664],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json || {};\nconst prep = $('Prep Bank Status Check2').first().json || {};\nlet text = '';\ntry {\n  text = raw.markdown || raw.body?.markdown || raw.text || raw.parsedText || raw.content || raw.md || raw.data || (typeof raw === 'string' ? raw : '');\n} catch (e) { text = ''; }\nconst ok = !!String(text).trim();\nreturn [{\n  json: {\n    fileId: null,\n    sessionId: prep.sessionId || null,\n    name: prep.name || 'upload.pdf',\n    type: prep.type || 'application/pdf',\n    parseRaw: String(text || '').slice(0, 100000),\n    parsed: ok,\n    parseStatus: ok ? 'ok' : 'failed',\n    llamaStatus: 'SUCCESS',\n    llamaJobId: prep.bank_job_id || '',\n  },\n}];"
+      },
+      "id": "9640a142-a5ac-4864-b440-72557a498ef1",
+      "name": "Normalize Parse2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4928, 3680]
+    },
+    {
+      "parameters": {
+        "jsCode": "const st = $input.first().json || {};\nconst prep = $('Prep Bank Status Check2').first().json || {};\nreturn [{\n  json: {\n    fileId: null,\n    sessionId: prep.sessionId || null,\n    parseRaw: '',\n    parsed: false,\n    parseStatus: 'pending',\n    llamaStatus: st.body?.status || st.status || 'PENDING',\n    llamaJobId: prep.bank_job_id || st.body?.id || st.id || '',\n  },\n}];"
+      },
+      "id": "df071918-86a5-48a4-98d5-559d86a3e8b3",
+      "name": "Parse Still Pending1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4832, 4000]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appwADvsTt5QGvDey",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Stage 2 Files",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Session": "={{ $json.sessionId ? [$json.sessionId] : [] }}",
+            "File Name": "={{ $json.name }}",
+            "File Type": "={{ $json.type }}",
+            "Parse Raw": "={{ $json.parseRaw }}",
+            "Parse Status": "={{ $json.parseStatus }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "Session", "displayName": "Session", "required": false, "defaultMatch": false, "canBeUsedToMatch": false, "display": true, "type": "array", "readOnly": false, "removed": false },
+            { "id": "File Name", "displayName": "File Name", "required": false, "defaultMatch": false, "canBeUsedToMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "File Type", "displayName": "File Type", "required": false, "defaultMatch": false, "canBeUsedToMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "Parse Raw", "displayName": "Parse Raw", "required": false, "defaultMatch": false, "canBeUsedToMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "Parse Status", "displayName": "Parse Status", "required": false, "defaultMatch": false, "canBeUsedToMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bdbea4de-829d-487e-abba-531c84324b94",
+      "name": "AT Update File Parse2",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [5152, 3680],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "7GvicfJT1nu7OUoa",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const at = $input.first().json || {};\nlet n = {};\ntry { n = $('Normalize Parse2').first().json || {}; } catch (e) { n = {}; }\nreturn [{\n  json: {\n    success: true,\n    fileId: at.id || null,\n    parsed: n.parsed !== undefined ? !!n.parsed : false,\n    parseStatus: n.parseStatus || at.error?.message || 'failed',\n  },\n}];"
+      },
+      "id": "b33dae7a-a3fc-4538-9a28-731079ac26d0",
+      "name": "Ingest Response2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5376, 3808]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "e4e0e44d-daf2-4a1a-88bf-c4fe50f82baa",
+      "name": "Respond Ingest2",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [5600, 3808]
+    }
+  ],
+  "connections": {
+    "Init Bank Poll2": {
+      "main": [[{ "node": "Wait 30s — Bank Initial2", "type": "main", "index": 0 }]]
+    },
+    "Wait 30s — Bank Initial2": {
+      "main": [[{ "node": "Prep Bank Status Check2", "type": "main", "index": 0 }]]
+    },
+    "Prep Bank Status Check2": {
+      "main": [[{ "node": "Check Bank Parse Status2", "type": "main", "index": 0 }]]
+    },
+    "Check Bank Parse Status2": {
+      "main": [[{ "node": "Parse Job Done?1", "type": "main", "index": 0 }]]
+    },
+    "Parse Job Done?1": {
+      "main": [
+        [{ "node": "Get Parse Markdown1", "type": "main", "index": 0 }],
+        [{ "node": "Parse Still Pending1", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Parse Markdown1": {
+      "main": [[{ "node": "Normalize Parse2", "type": "main", "index": 0 }]]
+    },
+    "Normalize Parse2": {
+      "main": [[{ "node": "AT Update File Parse2", "type": "main", "index": 0 }]]
+    },
+    "AT Update File Parse2": {
+      "main": [[{ "node": "Ingest Response2", "type": "main", "index": 0 }]]
+    },
+    "Parse Still Pending1": {
+      "main": [[{ "node": "Ingest Response2", "type": "main", "index": 0 }]]
+    },
+    "Ingest Response2": {
+      "main": [[{ "node": "Respond Ingest2", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "meta": { "templateCredsSetupCompleted": true }
+}

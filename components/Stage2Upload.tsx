@@ -15,9 +15,8 @@ import {
 } from '@/lib/webhooks';
 import type { UploadedFile, Stage2Data } from '@/lib/types';
 import { LoadingBar } from '@/components/Loading';
-import { ErrorCard } from '@/components/ErrorCard';
 import { useKeyboardEnforcement } from '@/hooks/use-keyboard-enforcement';
-import { KeyboardGateModal, KeyboardStatusBar, KeystrokeCounter } from '@/components/KeyboardEnforcement';
+import { KeyboardGateModal, KeystrokeCounter } from '@/components/KeyboardEnforcement';
 
 const ACCEPTED_TYPES = '.pdf,.docx,.xlsx,.png,.jpg,.pptx';
 const MAX_FILES = 20;
@@ -43,9 +42,6 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
   const [files, setFiles] = useState<UploadedFile[]>(state.stage2?.files || []);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
-  const [showSummaryBtn, setShowSummaryBtn] = useState(
-    (state.stage2?.files?.length ?? 0) > 0 && !state.stage2?.summary,
-  );
   const [analysing, setAnalysing] = useState(false);
   const [summary, setSummary] = useState<Stage2SummaryResponse | null>(
     state.stage2?.summary
@@ -68,6 +64,16 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
 
   const { showGate, dismissGate, recordKeystroke, keystrokes, getFieldMismatch } =
     useKeyboardEnforcement(['editedSummary']);
+
+  const uploadedCount = files.filter((f) => f.uploaded).length;
+  const overallUploadPercent =
+    files.length === 0
+      ? 0
+      : Math.round(
+          files.reduce((sum, f) => sum + (f.uploaded ? 100 : uploadProgress[f.name] || 0), 0) /
+            files.length,
+        );
+  const canAnalyse = uploadedCount > 0 && !uploading && !analysing;
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -116,13 +122,16 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
 
     setFiles((prev) => [...prev, ...fileEntries]);
 
-    for (const file of validFiles) {
+    for (let i = 0; i < validFiles.length; i++) {
+      const file = validFiles[i];
+      setUploadProgress((p) => ({ ...p, [file.name]: 12 }));
       try {
         await ingestStage2File({
           sessionId: state.sessionId,
           employeeId,
           file,
         });
+        setUploadProgress((p) => ({ ...p, [file.name]: 100 }));
         setFiles((prev) =>
           prev.map((f) => (f.name === file.name ? { ...f, uploaded: true } : f)),
         );
@@ -135,8 +144,6 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
     }
 
     setUploading(false);
-    setUploadProgress({});
-    setShowSummaryBtn(true);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -231,7 +238,18 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
       router.push(`/review/${employeeId}/3`);
     } catch (err) {
       console.error('Webhook failed:', err);
-      setError('Something went wrong. Please try again.');
+      setStage2({
+        files,
+        summary: finalSummary,
+        summaryEdited: edited,
+        projectsIdentified: summary?.projectsIdentified || [],
+        keyOutputs: summary?.keyOutputs || [],
+        contributionLevel: summary?.contributionLevel || '',
+        notes: summary?.notes || '',
+      });
+      toast('Saved on this device. Server did not confirm.', 'error');
+      router.push(`/review/${employeeId}/3`);
+    } finally {
       setSubmitting(false);
     }
   };
@@ -287,8 +305,6 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
       <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 20 }}>
         Upload everything you produced this month. Documents, reports, spreadsheets, presentations.
       </p>
-
-      <KeyboardStatusBar />
 
       {error && (
         <div className="error-card">
@@ -372,12 +388,38 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
         </div>
       )}
 
-      {/* Analyse button */}
-      {showSummaryBtn && !summary && files.length > 0 && !uploading && (
-        <div style={{ marginTop: 32, textAlign: 'center' }}>
-          <button className="btn-primary" onClick={handleAnalyse} style={{ padding: '14px 28px' }}>
-            <Sparkles size={16} />
-            Analyse My Work
+      {!summary && (
+        <div className="stage2-actions">
+          <div className="stage2-progress">
+            <div className="score-bar-wrap" style={{ height: 8 }}>
+              <div className="score-bar-fill" style={{ width: `${overallUploadPercent}%` }} />
+            </div>
+            <p>
+              {uploading
+                ? `Uploading ${uploadedCount} of ${files.length} file${files.length === 1 ? '' : 's'}…`
+                : uploadedCount > 0
+                  ? `${uploadedCount} file${uploadedCount === 1 ? '' : 's'} uploaded`
+                  : 'Upload a file to enable continue'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleAnalyse}
+            disabled={!canAnalyse}
+            title={!canAnalyse ? 'Upload at least one file to continue' : undefined}
+          >
+            {uploading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Uploading…
+              </>
+            ) : (
+              <>
+                Analyse My Work
+                <ArrowRight size={16} />
+              </>
+            )}
           </button>
         </div>
       )}
@@ -488,8 +530,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
             <button
               className="btn-primary"
               onClick={() => setShowConfirm(true)}
-              disabled={submitting || (editMode && getFieldMismatch('editedSummary', editedSummary))}
-              title={editMode && getFieldMismatch('editedSummary', editedSummary) ? 'Keystroke count must match character count' : undefined}
+              disabled={submitting}
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
               Confirm &amp; Continue

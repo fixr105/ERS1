@@ -925,6 +925,101 @@ input[type='range']::-moz-range-thumb {
   line-height: 1;
 }
 
+.app-home {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+.app-home-bar {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(4, 5, 6, 0.9);
+}
+
+.app-home-bar-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.app-home-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px 48px;
+}
+
+.app-home-panel {
+  width: 100%;
+  max-width: 720px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+}
+
+.app-home-panel-head {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.app-home-panel-head h1 {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+}
+
+.app-home-panel-head p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.app-home-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 0;
+}
+
+.app-home-grid > div:first-child {
+  padding: 24px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.app-home-stages {
+  list-style: none;
+  margin: 0;
+  padding: 16px 20px;
+}
+
+.app-home-stages li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.app-home-stages li:last-child {
+  border-bottom: none;
+}
+
+.app-home-stages span {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 22px;
+}
+
 .hero-layout {
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
@@ -1010,14 +1105,18 @@ input[type='range']::-moz-range-thumb {
 
 @media (max-width: 1024px) {
   .hero-layout,
-  .footer-grid {
+  .footer-grid,
+  .app-home-grid {
     grid-template-columns: 1fr;
     gap: 32px;
+  }
+  .app-home-grid > div:first-child {
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
   }
   .home-metrics {
     grid-template-columns: 1fr;
   }
-  --space-section: 96px;
 }
 
 @media (max-width: 768px) {

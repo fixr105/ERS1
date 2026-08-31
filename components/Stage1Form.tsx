@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { useReview } from '@/context/ReviewContext';
 import { useToast } from '@/components/ToastProvider';
-import { submitStage1 } from '@/lib/webhooks';
+import { isAirtableRecordId, submitStage1 } from '@/lib/webhooks';
 import type { Stage1Data } from '@/lib/types';
 import { ErrorCard } from '@/components/ErrorCard';
 
@@ -73,13 +73,17 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
         { ...stage1Data, selfRating },
         timeSpentSeconds,
       );
-      if (result.sessionId) setSessionId(result.sessionId);
+      if (!isAirtableRecordId(result.sessionId)) {
+        throw new Error('Session was not created on the server');
+      }
+      setSessionId(result.sessionId);
       toast('Self assessment saved', 'success');
       goNext(stage1Data);
     } catch (err) {
       console.error('Webhook failed:', err);
-      toast('Saved on this device. Server did not confirm.', 'error');
-      goNext(stage1Data);
+      const message = err instanceof Error ? err.message : 'Could not save self assessment. Please try again.';
+      setError(message);
+      toast('Could not save self assessment. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -95,7 +99,7 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
           marginBottom: 8,
         }}
       >
-        How was your month, {state.employeeName.split(' ')[0] || 'there'}?
+        How was your month, {state.employeeName.trim().split(/\s+/)[0] || 'there'}?
       </h1>
       <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 28 }}>
         Answer each question, then continue.

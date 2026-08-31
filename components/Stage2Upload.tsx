@@ -239,18 +239,8 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
       router.push(`/review/${employeeId}/3`);
     } catch (err) {
       console.error('Webhook failed:', err);
-      setStage2({
-        files,
-        summary: finalSummary,
-        summaryEdited: edited,
-        projectsIdentified: summary?.projectsIdentified || [],
-        keyOutputs: summary?.keyOutputs || [],
-        contributionLevel: summary?.contributionLevel || '',
-        notes: summary?.notes || '',
-        contradictions: summary?.contradictions || [],
-      });
-      toast('Saved on this device. Server did not confirm.', 'error');
-      router.push(`/review/${employeeId}/3`);
+      setError('Could not confirm work summary. Please try again.');
+      toast('Could not confirm work summary. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }

@@ -122,6 +122,7 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
     );
 
     const handleSubmit = async () => {
+      if (!allAnswered || mismatchCount > 0) return;
       setSubmitting(true);
       const qa: InterviewAnswer[] = questions.map((q) => ({
         questionId: q.id,
@@ -200,11 +201,16 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
               {mismatchCount} answer{mismatchCount > 1 ? 's' : ''} have keystroke mismatches
             </span>
           )}
+          {!allAnswered && mismatchCount === 0 && (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 'auto' }}>
+              Answer every question ({answeredCount}/{questions.length}) before submitting.
+            </span>
+          )}
           <button className="btn-ghost" onClick={() => setShowSummary(false)}>
             <ArrowLeft size={16} />
             Back to Questions
           </button>
-          <button className="btn-primary" onClick={handleSubmit} disabled={submitting || mismatchCount > 0}>
+          <button className="btn-primary" onClick={handleSubmit} disabled={submitting || mismatchCount > 0 || !allAnswered}>
             {submitting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
             Submit Interview
             <ArrowRight size={16} />

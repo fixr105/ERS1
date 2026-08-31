@@ -23,6 +23,10 @@ export function validateWebhooks(): string[] {
   return Object.values(WEBHOOKS).filter((url) => !url);
 }
 
+export function isAirtableRecordId(id: string | undefined | null): id is string {
+  return typeof id === 'string' && id.startsWith('rec');
+}
+
 export class WebhookError extends Error {
   status?: number;
 
@@ -356,7 +360,7 @@ export async function getStage3Questions(
 ): Promise<Stage3QuestionsResponse> {
   const built = buildStage3Questions(stage1, stage2);
   const stage1Summary = stage1
-    ? `Overall: ${stage1.overallPerformance}. Wins: ${stage1.biggestWins}. Issues: ${stage1.whatWentWrong}. Rating: ${stage1.selfRating}/5. Could be different: ${stage1.whatCouldBeDifferent}. Time sinks: ${stage1.projectsConsumedTime}`
+    ? `Overall: ${stage1.overallPerformance}. Wins: ${stage1.biggestWins}. Issues: ${stage1.whatWentWrong}. Rating: ${stage1.selfRating}/10. Could be different: ${stage1.whatCouldBeDifferent}. Time sinks: ${stage1.projectsConsumedTime}`
     : '';
   const projects = stage2?.projectsIdentified || [];
 
@@ -439,8 +443,9 @@ export function submitStage4(
     month,
     timeSpentSeconds,
     peerFeedback: peerFeedback.map((peer) => ({
-      colleagueId: peer.colleagueId,
+      colleagueId: peer.colleagueName,
       colleagueName: peer.colleagueName,
+      revieweeName: peer.colleagueName,
       interaction: peer.interaction,
       biasWarningShown,
       ratings: {
@@ -563,8 +568,9 @@ export function generateReport(
       totalPasteAttempts: stage3Qa.reduce((sum, item) => sum + (item.pasteAttempts || 0), 0),
     },
     stage4: (reviewState.stage4?.peerFeedback || []).map((peer) => ({
-      colleagueId: peer.colleagueId,
+      colleagueId: peer.colleagueName,
       colleagueName: peer.colleagueName,
+      revieweeName: peer.colleagueName,
       interaction: peer.interaction,
       ratings: {
         respondsOnTime: peer.ratings.respondsOnTime,

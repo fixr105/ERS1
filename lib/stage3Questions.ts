@@ -41,7 +41,7 @@ export function sessionSpecificTokens(
   };
 
   if (stage1?.selfRating != null && Number.isFinite(stage1.selfRating)) {
-    tokens.push(`${stage1.selfRating}/5`);
+    tokens.push(`${stage1.selfRating}/10`);
   }
   if (stage2?.contributionLevel) tokens.push(stage2.contributionLevel);
 
@@ -97,13 +97,13 @@ export function buildStage3Questions(
       ? {
           id: 'q2',
           category: 'Gap Analysis',
-          question: `You rated yourself ${stage1!.selfRating}/5 while Stage 2 assessed your contribution as ${contribution}. Where does that line up, and where does it not?`,
+          question: `You rated yourself ${stage1!.selfRating}/10 while Stage 2 assessed your contribution as ${contribution}. Where does that line up, and where does it not?`,
         }
       : hasRating
         ? {
             id: 'q2',
             category: 'Gap Analysis',
-            question: `You rated yourself ${stage1!.selfRating}/5. How does that compare with the work evidence from this month?`,
+            question: `You rated yourself ${stage1!.selfRating}/10. How does that compare with the work evidence from this month?`,
           }
         : contribution
           ? {

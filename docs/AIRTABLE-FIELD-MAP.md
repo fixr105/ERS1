@@ -116,7 +116,7 @@ One row per reviewee.
 |---|---|---|
 | Session | Link | `sessionId` |
 | Reviewer Name | Text | `employeeName` |
-| Reviewee ID | Text | `colleagueId` |
+| Reviewee ID | Text | `colleagueName` (reviewee name, not record id) |
 | Did Not Interact | Checkbox | `interaction === false` |
 | Responds On Time | Number | `ratings.respondsOnTime` |
 | Helps With Own Tasks | Number | `helpsWithOwnTasks` |
@@ -273,8 +273,9 @@ Response: `{ "success": true, "stage3Id": "rec…", "pasteAttempts": 0, "flagged
   "month": "August",
   "timeSpentSeconds": 0,
   "peerFeedback": [{
-    "colleagueId": "rec…",
-    "colleagueName": "",
+    "colleagueId": "Priyanka",
+    "colleagueName": "Priyanka",
+    "revieweeName": "Priyanka",
     "interaction": true,
     "biasWarningShown": false,
     "ratings": {

@@ -33,7 +33,7 @@ describe('buildStage3Questions', () => {
     const questions = buildStage3Questions(filledStage1, filledStage2);
     assert.equal(questions.length, 10);
     const byId = Object.fromEntries(questions.map((q) => [q.id, q.question]));
-    assert.match(byId.q2, /4\/5/);
+    assert.match(byId.q2, /4\/10/);
     assert.match(byId.q2, /High/);
     assert.match(byId.q3, /Claimed 100% on-time/);
     assert.match(byId.q7, /Ledger close/);

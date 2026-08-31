@@ -55,8 +55,12 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
       const data = await fetchEmployees();
       const filtered = data.filter((e) => e.id !== employeeId);
       setPeers(filtered);
-      setRatings(filtered.map((p) => createDefaultRating(p.id, p.name)));
-      setExpanded(new Set([filtered[0]?.id]));
+      setRatings((prev) => {
+        if (prev.length > 0) return prev;
+        if (state.stage4?.peerFeedback?.length) return state.stage4.peerFeedback;
+        return filtered.map((p) => createDefaultRating(p.id, p.name));
+      });
+      setExpanded((prev) => (prev.size > 0 ? prev : new Set([filtered[0]?.id])));
     } catch (err) {
       console.error('Webhook failed:', err);
       setError('Something went wrong. Please try again.');
@@ -67,9 +71,10 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
   };
 
   useEffect(() => {
-    if (state.stage4) return;
     fetchPeers();
-  }, [employeeId, state.stage4]);
+    // Load the directory on each visit so draft ratings can be merged in fetchPeers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeId]);
 
   const toggleExpand = (id: string) => {
     setExpanded((prev) => {

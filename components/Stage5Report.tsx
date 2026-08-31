@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Download, Copy, FileText, Sparkles, Loader2 } from 'lucide-react';
 import { useReview } from '@/context/ReviewContext';
 import { useToast } from '@/components/ToastProvider';
-import { generateReport, type Stage5ReportResponse } from '@/lib/webhooks';
+import { generateReport, isAirtableRecordId, type Stage5ReportResponse } from '@/lib/webhooks';
 import type { Stage5Data } from '@/lib/types';
 import { ErrorCard } from '@/components/ErrorCard';
 
@@ -102,6 +102,15 @@ export function Stage5Report({ employeeId }: { employeeId: string }) {
       setError(null);
       try {
         const latest = stateRef.current;
+        if (
+          !isAirtableRecordId(latest.sessionId) ||
+          !latest.stage1 ||
+          !latest.stage2 ||
+          !latest.stage3 ||
+          !latest.stage4
+        ) {
+          throw new Error('Complete stages 1–4 in this session before generating a report.');
+        }
         const timeSpentSeconds = Math.round((Date.now() - stageStartTime.current) / 1000);
         const res = await generateReport(employeeId, latest.sessionId, latest, timeSpentSeconds);
         setReport(res);
@@ -120,7 +129,7 @@ export function Stage5Report({ employeeId }: { employeeId: string }) {
       } catch (err) {
         console.error('Webhook failed:', err);
         if (!cancelled) {
-          setError('Something went wrong. Please try again.');
+          setError(err instanceof Error ? err.message : 'Could not generate the report. Please try again.');
           setLoading(false);
         }
       }
@@ -263,7 +272,7 @@ ${report.aiObservations}
       <div ref={reportRef}>
         {hasIncompleteStages && (
           <div className="dev-warning">
-            &#9888; Dev mode: report is showing mock data. Complete all stages for a real assessment.
+            Earlier stages are incomplete. This report used only the data available in this session.
           </div>
         )}
 

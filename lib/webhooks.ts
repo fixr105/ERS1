@@ -196,7 +196,7 @@ export function submitStage1(
     })),
     timeSpentSeconds,
     weeklyContext: '',
-  }).then((raw) => normalizeStage1Result(raw, sessionId));
+  }, 20000).then((raw) => normalizeStage1Result(raw, sessionId));
 }
 
 export interface Stage2FilePayload {

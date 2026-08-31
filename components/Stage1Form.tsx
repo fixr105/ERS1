@@ -8,16 +8,14 @@ import { useToast } from '@/components/ToastProvider';
 import { submitStage1 } from '@/lib/webhooks';
 import type { Stage1Data } from '@/lib/types';
 import { ErrorCard } from '@/components/ErrorCard';
-import { useKeyboardEnforcement } from '@/hooks/use-keyboard-enforcement';
-import { KeyboardGateModal, KeyboardStatusBar, KeystrokeCounter } from '@/components/KeyboardEnforcement';
 
 const QUESTIONS = [
-  { key: 'overallPerformance', label: 'How would you describe your overall performance this month?', minChars: 100 },
-  { key: 'biggestWins', label: 'What were your 2–3 biggest wins this month?', minChars: 80 },
-  { key: 'whatWentWrong', label: 'What went wrong or didn\'t go as planned?', minChars: 80 },
-  { key: 'whatCouldBeDifferent', label: 'What could you have done differently?', minChars: 80 },
-  { key: 'projectsConsumedTime', label: 'Which projects consumed the most of your time?', minChars: 80 },
-  { key: 'feltStuckOrUnsupported', label: 'Where did you feel stuck or unsupported?', minChars: 80 },
+  { key: 'overallPerformance', label: 'How would you describe your overall performance this month?' },
+  { key: 'biggestWins', label: 'What were your 2–3 biggest wins this month?' },
+  { key: 'whatWentWrong', label: 'What went wrong or didn\'t go as planned?' },
+  { key: 'whatCouldBeDifferent', label: 'What could you have done differently?' },
+  { key: 'projectsConsumedTime', label: 'Which projects consumed the most of your time?' },
+  { key: 'feltStuckOrUnsupported', label: 'Where did you feel stuck or unsupported?' },
 ] as const;
 
 export function Stage1Form({ employeeId }: { employeeId: string }) {
@@ -42,20 +40,15 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
   const [error, setError] = useState<string | null>(null);
   const stageStartTime = useRef(Date.now());
 
-  const fieldKeys = QUESTIONS.map((q) => q.key);
-  const { showGate, dismissGate, recordKeystroke, keystrokes } =
-    useKeyboardEnforcement(fieldKeys);
+  const allFilled = QUESTIONS.every((q) => (answers[q.key] || '').trim().length > 0);
 
-  const getCharCount = (text: string) => text.length;
-
-  const allValid = QUESTIONS.every((q) => (answers[q.key] || '').length >= q.minChars);
-
-  const handleChange = (key: string, value: string) => {
-    setAnswers((a) => ({ ...a, [key]: value }));
+  const goNext = (stage1Data: Stage1Data) => {
+    setStage1(stage1Data);
+    router.push(`/review/${employeeId}/2`);
   };
 
   const handleSubmit = async () => {
-    if (!allValid) return;
+    if (!allFilled || submitting) return;
     setSubmitting(true);
     setError(null);
 
@@ -77,35 +70,20 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
         state.sessionId,
         state.month,
         state.year,
-        {
-          ...stage1Data,
-          selfRating,
-        },
+        { ...stage1Data, selfRating },
         timeSpentSeconds,
       );
       if (result.sessionId) setSessionId(result.sessionId);
-      setStage1(stage1Data);
       toast('Self assessment saved', 'success');
-      router.push(`/review/${employeeId}/2`);
+      goNext(stage1Data);
     } catch (err) {
       console.error('Webhook failed:', err);
-      setStage1(stage1Data);
       toast('Saved on this device. Server did not confirm.', 'error');
-      router.push(`/review/${employeeId}/2`);
+      goNext(stage1Data);
     } finally {
       setSubmitting(false);
     }
   };
-
-  if (showGate) {
-    return (
-      <KeyboardGateModal
-        title="Keyboard-Only Assessment Mode"
-        description="This self-assessment is conducted in keyboard-only mode to ensure authentic, real-time responses. Before you begin, please review the rules below."
-        onConfirm={dismissGate}
-      />
-    );
-  }
 
   return (
     <div className="animate-fade-in-up">
@@ -117,21 +95,21 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
           marginBottom: 8,
         }}
       >
-        How was your month, {state.employeeName.split(' ')[0]}?
+        How was your month, {state.employeeName.split(' ')[0] || 'there'}?
       </h1>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 20 }}>
-        Answer honestly. This shapes every stage that follows.
+      <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 28 }}>
+        Answer each question, then continue.
       </p>
 
-      <KeyboardStatusBar />
-
-      {error && <div style={{ marginBottom: 24 }}><ErrorCard message={error} onRetry={handleSubmit} /></div>}
+      {error && (
+        <div style={{ marginBottom: 24 }}>
+          <ErrorCard message={error} onRetry={handleSubmit} />
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
         {QUESTIONS.map((q, idx) => {
           const value = answers[q.key] || '';
-          const chars = getCharCount(value);
-          const valid = chars >= q.minChars;
           return (
             <div key={q.key} className="grad-border" style={{ padding: 24 }}>
               <label
@@ -149,42 +127,15 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
               <textarea
                 className="input-field"
                 value={value}
-                data-keyboard-only="true"
-                onPaste={(e) => { e.preventDefault(); toast('Paste is disabled — keyboard input only', 'error'); }}
-                onContextMenu={(e) => e.preventDefault()}
-                onKeyDown={(e) => {
-                  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                    recordKeystroke(q.key);
-                  }
-                }}
-                onChange={(e) => handleChange(q.key, e.target.value)}
+                onChange={(e) => setAnswers((a) => ({ ...a, [q.key]: e.target.value }))}
                 rows={4}
                 placeholder="Type your answer..."
                 style={{ minHeight: 100 }}
               />
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginTop: 8,
-                  fontSize: 12,
-                }}
-              >
-                <span style={{ color: valid ? 'var(--success)' : 'var(--text-muted)' }}>
-                  {chars} / {q.minChars} chars
-                </span>
-                <KeystrokeCounter
-                  keystrokes={keystrokes[q.key] || 0}
-                  chars={chars}
-                  mismatch={chars > 0 && (keystrokes[q.key] || 0) < chars}
-                />
-              </div>
             </div>
           );
         })}
 
-        {/* Self rating slider */}
         <div className="grad-border active" style={{ padding: 24 }}>
           <label
             style={{
@@ -208,14 +159,13 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
             }}
           >
             <span
+              className="grad-text"
               style={{
-                fontFamily: "'Inter', sans-serif",
-                  fontWeight: 500,
+                fontWeight: 500,
                 fontSize: 48,
                 letterSpacing: '-0.03em',
                 lineHeight: 1,
               }}
-              className="grad-text"
             >
               {selfRating}
             </span>
@@ -228,22 +178,7 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
             max={10}
             step={1}
             value={selfRating}
-            onPointerDown={(e) => {
-              e.preventDefault();
-              const el = e.currentTarget;
-              const rect = el.getBoundingClientRect();
-              const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-              setSelfRating(Math.round(1 + ratio * 9));
-              el.setPointerCapture(e.pointerId);
-            }}
-            onPointerMove={(e) => {
-              if (e.buttons === 0) return;
-              e.preventDefault();
-              const el = e.currentTarget;
-              const rect = el.getBoundingClientRect();
-              const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-              setSelfRating(Math.round(1 + ratio * 9));
-            }}
+            onChange={(e) => setSelfRating(Number(e.target.value))}
             aria-label="Self rating"
             style={{ width: '100%' }}
           />
@@ -262,14 +197,12 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
         </div>
       </div>
 
-      {/* Submit */}
       <div style={{ marginTop: 40, display: 'flex', justifyContent: 'flex-end' }}>
         <button
+          type="button"
           className="btn-primary"
           onClick={handleSubmit}
-          disabled={!allValid || submitting}
-          style={{ padding: '14px 28px' }}
-          title={!allValid ? 'All fields require minimum characters' : undefined}
+          disabled={!allFilled || submitting}
         >
           {submitting ? (
             <>

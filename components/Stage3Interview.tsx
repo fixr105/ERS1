@@ -88,7 +88,7 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 32 }}>
-        <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 700, textAlign: 'center' }}>
+        <h2 style={{ fontSize: 24, fontWeight: 500, textAlign: 'center' }}>
           Generating your questions...
         </h2>
         <div style={{ width: '100%', maxWidth: 600, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -160,8 +160,7 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
       <div className="animate-fade-in-up">
         <h1
           style={{
-            fontFamily: "'Space Grotesk', sans-serif",
-            fontWeight: 700,
+          fontWeight: 500,
             fontSize: 28,
             letterSpacing: '-0.02em',
             marginBottom: 8,
@@ -252,8 +251,7 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
     <div className="animate-fade-in-up">
       <h1
         style={{
-          fontFamily: "'Space Grotesk', sans-serif",
-          fontWeight: 700,
+          fontWeight: 500,
           fontSize: 28,
           letterSpacing: '-0.02em',
           marginBottom: 8,

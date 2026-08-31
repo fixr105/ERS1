@@ -63,8 +63,7 @@ export function KeyboardGateModal({
 
         <h1
           style={{
-            fontFamily: "'Space Grotesk', sans-serif",
-            fontWeight: 700,
+            fontWeight: 500,
             fontSize: 24,
             letterSpacing: '-0.02em',
             marginBottom: 16,

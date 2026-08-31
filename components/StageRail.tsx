@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Check, SkipForward, ChevronDown } from 'lucide-react';
 import { useReview } from '@/context/ReviewContext';
 import { STAGE_NAMES } from '@/lib/types';
@@ -34,38 +35,12 @@ export function ReviewTopBar() {
   };
 
   return (
-    <>
-      <header
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-          background: 'rgba(15, 15, 26, 0.85)',
-          backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid var(--border-default)',
-          padding: '14px 32px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div
-            className="stage-dot active"
-            style={{ width: 32, height: 32, fontSize: 13 }}
-          >
-            {currentStage}
-          </div>
-          <div>
-            <p
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontWeight: 700,
-                fontSize: 15,
-                letterSpacing: '-0.01em',
-                color: 'var(--text-primary)',
-              }}
-            >
+    <header className="review-topbar">
+      <div className="review-topbar-inner">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+          <div className="stage-dot active">{currentStage}</div>
+          <div style={{ minWidth: 0 }}>
+            <p className="heading-display" style={{ fontSize: 15, letterSpacing: '-0.03em' }}>
               {STAGE_NAMES[currentStage] || 'Review'}
             </p>
             <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -77,25 +52,13 @@ export function ReviewTopBar() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {/* Jump to Stage dropdown — for testing */}
           <div ref={jumpRef} style={{ position: 'relative' }}>
             <button
+              type="button"
+              className="btn-ghost"
               onClick={() => setJumpOpen((o) => !o)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '7px 12px',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-bright)',
-                borderRadius: 8,
-                color: 'var(--text-secondary)',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'border-color 0.2s, color 0.2s',
-              }}
               title="Jump to any stage (for testing)"
+              style={{ minHeight: 36, padding: '6px 12px', fontSize: 12 }}
             >
               <SkipForward size={14} />
               Jump to Stage
@@ -103,56 +66,20 @@ export function ReviewTopBar() {
             </button>
 
             {jumpOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  right: 0,
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border-bright)',
-                  borderRadius: 10,
-                  boxShadow: '0 12px 40px #00000060',
-                  padding: 6,
-                  minWidth: 200,
-                  zIndex: 200,
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: 10,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                    color: 'var(--text-muted)',
-                    padding: '8px 12px 6px',
-                    fontWeight: 600,
-                  }}
-                >
+              <div className="jump-menu">
+                <p className="field-label" style={{ padding: '8px 12px 6px' }}>
                   Testing Navigation
                 </p>
                 {stages.map((stage) => (
                   <button
                     key={stage}
+                    type="button"
+                    className="employee-option"
                     onClick={() => handleJump(stage)}
                     style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '9px 12px',
-                      background: 'none',
-                      border: 'none',
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                      fontSize: 13,
                       color: stage === currentStage ? 'var(--accent-light)' : 'var(--text-secondary)',
                       fontWeight: stage === currentStage ? 600 : 400,
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-surface)';
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = 'none';
+                      borderRadius: 6,
                     }}
                   >
                     <span
@@ -162,44 +89,19 @@ export function ReviewTopBar() {
                       {stage}
                     </span>
                     {STAGE_NAMES[stage]}
-                    {stage === currentStage && (
-                      <Check size={14} style={{ marginLeft: 'auto' }} />
-                    )}
+                    {stage === currentStage && <Check size={14} style={{ marginLeft: 'auto' }} />}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          <span
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontWeight: 700,
-              fontSize: 14,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            <span style={{ color: 'var(--text-primary)' }}>Seven </span>
-            <span
-              style={{
-                background: 'var(--grad-primary)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
-              Fincorp
-            </span>
-          </span>
+          <Link href="/" className="brand-mark">
+            Seven Fincorp
+          </Link>
         </div>
-      </header>
-
-      <style>{`
-        @media (max-width: 768px) {
-          header { padding: 10px 16px !important; }
-        }
-      `}</style>
-    </>
+      </div>
+    </header>
   );
 }
 

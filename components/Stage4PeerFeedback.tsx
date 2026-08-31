@@ -195,8 +195,7 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
     <div className="animate-fade-in-up">
       <h1
         style={{
-          fontFamily: "'Space Grotesk', sans-serif",
-          fontWeight: 700,
+          fontWeight: 500,
           fontSize: 28,
           letterSpacing: '-0.02em',
           marginBottom: 8,
@@ -293,7 +292,7 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
                           <span
                             style={{
                               fontSize: 16,
-                              fontWeight: 800,
+                              fontWeight: 500,
                               letterSpacing: '-0.03em',
                               color: 'var(--accent-light)',
                               minWidth: 32,

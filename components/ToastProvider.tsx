@@ -53,7 +53,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               borderColor:
                 t.type === 'success' ? '#34D39940'
                 : t.type === 'error' ? '#F8717140'
-                : '#6C63FF40',
+                : 'rgba(234,75,113,0.35)',
             }}
           >
             <span

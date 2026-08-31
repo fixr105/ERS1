@@ -231,7 +231,7 @@ ${report.aiObservations}
       >
         <Sparkles size={48} className="grad-text" />
         <div>
-          <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 700, textAlign: 'center', marginBottom: 8 }}>
+          <h2 style={{ fontSize: 24, fontWeight: 500, textAlign: 'center', marginBottom: 8 }}>
             Generating your assessment...
           </h2>
           <p style={{ color: 'var(--text-secondary)', textAlign: 'center', fontSize: 14 }}>
@@ -273,8 +273,7 @@ ${report.aiObservations}
 
         <h1
           style={{
-            fontFamily: "'Space Grotesk', sans-serif",
-            fontWeight: 700,
+            fontWeight: 500,
             fontSize: 28,
             letterSpacing: '-0.02em',
             marginBottom: 8,
@@ -293,7 +292,7 @@ ${report.aiObservations}
             <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 8 }}>
               Monthly Performance Report
             </p>
-            <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 700 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 500 }}>
               {state.employeeName} · {state.month} {state.year}
             </h2>
           </div>
@@ -309,7 +308,7 @@ ${report.aiObservations}
               <span
                 style={{
                   fontFamily: "'Inter', sans-serif",
-                  fontWeight: 800,
+                  fontWeight: 500,
                   fontSize: 64,
                   letterSpacing: '-0.03em',
                   lineHeight: 1,
@@ -337,7 +336,7 @@ ${report.aiObservations}
                 <div key={i}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
                     <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{dim.name}</span>
-                    <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--accent-light)' }}>
+                    <span style={{ fontSize: 14, fontWeight: 500, letterSpacing: '-0.03em', color: 'var(--accent-light)' }}>
                       {dim.score.toFixed(1)}<span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/10</span>
                     </span>
                   </div>

@@ -250,7 +250,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
       >
         <Sparkles size={48} className="grad-text" />
         <div>
-          <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 700, textAlign: 'center', marginBottom: 8 }}>
+          <h2 style={{ fontSize: 24, fontWeight: 500, textAlign: 'center', marginBottom: 8 }}>
             Analysing your work...
           </h2>
           <p style={{ color: 'var(--text-secondary)', textAlign: 'center', fontSize: 14 }}>
@@ -276,8 +276,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
     <div className="animate-fade-in-up">
       <h1
         style={{
-          fontFamily: "'Space Grotesk', sans-serif",
-          fontWeight: 700,
+          fontWeight: 500,
           fontSize: 28,
           letterSpacing: '-0.02em',
           marginBottom: 8,
@@ -304,17 +303,14 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
+        className={`dropzone${dragOver ? ' is-over' : ''}`}
         style={{
-          border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border-bright)'}`,
-          borderRadius: 12,
           minHeight: 200,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          transition: 'border-color 0.2s, background 0.2s',
-          background: dragOver ? '#6C63FF08' : 'var(--bg-surface)',
           gap: 12,
         }}
       >
@@ -391,7 +387,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
         <div className="grad-border grad-border-animated" style={{ padding: 28, marginTop: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
             <Sparkles size={18} className="grad-text" />
-            <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 700 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 500 }}>
               AI Work Summary
             </h3>
           </div>
@@ -507,7 +503,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
       {showConfirm && (
         <div className="modal-backdrop" onClick={() => setShowConfirm(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 500, marginBottom: 12 }}>
               Are you sure you want to submit this summary?
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>

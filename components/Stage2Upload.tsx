@@ -51,7 +51,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
           keyOutputs: state.stage2.keyOutputs,
           contributionLevel: state.stage2.contributionLevel as 'High' | 'Medium' | 'Low',
           notes: state.stage2.notes,
-          contradictions: [],
+          contradictions: state.stage2.contradictions || [],
         }
       : null,
   );
@@ -232,6 +232,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
         keyOutputs: summary?.keyOutputs || [],
         contributionLevel: summary?.contributionLevel || '',
         notes: summary?.notes || '',
+        contradictions: summary?.contradictions || [],
       };
       setStage2(stage2Data);
       toast('Work summary confirmed', 'success');
@@ -246,6 +247,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
         keyOutputs: summary?.keyOutputs || [],
         contributionLevel: summary?.contributionLevel || '',
         notes: summary?.notes || '',
+        contradictions: summary?.contradictions || [],
       });
       toast('Saved on this device. Server did not confirm.', 'error');
       router.push(`/review/${employeeId}/3`);

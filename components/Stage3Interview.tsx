@@ -62,11 +62,8 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
         const res: Stage3QuestionsResponse = await getStage3Questions(
           employeeId,
           state.sessionId,
-          state.stage1
-            ? `Overall: ${state.stage1.overallPerformance}. Wins: ${state.stage1.biggestWins}. Issues: ${state.stage1.whatWentWrong}`
-            : '',
-          state.stage2?.summary || '',
-          state.stage2?.projectsIdentified || [],
+          state.stage1,
+          state.stage2,
         );
         if (!cancelled && res.questions?.length > 0) {
           setQuestions(res.questions);

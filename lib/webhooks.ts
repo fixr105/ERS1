@@ -1,4 +1,9 @@
-import type { PeerRating, ReviewState, Stage1Data } from './types';
+import type { PeerRating, ReviewState, Stage1Data, Stage2Data } from './types';
+import {
+  buildStage3Questions,
+  GENERIC_STAGE3_QUESTIONS,
+  isSessionSpecificQuestions,
+} from './stage3Questions';
 
 const N8N_PREFIX = process.env.NEXT_PUBLIC_N8N_PREFIX || '/api/n8n';
 
@@ -322,42 +327,65 @@ export interface Stage3QuestionsResponse {
   questions: { id: string; question: string; category: string }[];
 }
 
-export const FALLBACK_STAGE3_QUESTIONS: Stage3QuestionsResponse['questions'] = [
-  { id: 'q1', question: 'Describe the most significant decision you made this month and why you made it.', category: 'Reasoning' },
-  { id: 'q2', question: 'Walk me through a moment where things did not go as planned. What happened?', category: 'Gap Analysis' },
-  { id: 'q3', question: 'Is there something you said you would do that you did not complete? Explain.', category: 'Gap Analysis' },
-  { id: 'q4', question: 'How would you handle a similar situation differently next time?', category: 'Decision Making' },
-  { id: 'q5', question: 'What advice would you give a colleague dealing with the same challenge you faced?', category: 'Advice' },
-  { id: 'q6', question: 'Pick your most important project. What was your specific contribution?', category: 'Project Deep Dive' },
-  { id: 'q7', question: 'What went wrong in your most challenging project and what caused it?', category: 'Project Deep Dive' },
-  { id: 'q8', question: 'If you could redo one piece of work from this month, what would you change?', category: 'Project Deep Dive' },
-  { id: 'q9', question: 'What is the most important thing you learned this month and how will it change how you work?', category: 'Project Deep Dive' },
-  { id: 'q10', question: 'What does this month reveal about how you work at your best and where you still have room to grow?', category: 'Reflection' },
-];
+function unwrapStage3Questions(raw: unknown): Stage3QuestionsResponse {
+  if (Array.isArray(raw)) {
+    const first = raw[0] as
+      | { questions?: Stage3QuestionsResponse['questions']; question?: string }
+      | undefined;
+    if (first?.questions && Array.isArray(first.questions)) {
+      return { questions: first.questions };
+    }
+    if (first && typeof first.question === 'string') {
+      return { questions: raw as Stage3QuestionsResponse['questions'] };
+    }
+    return { questions: [] };
+  }
+  if (raw && typeof raw === 'object' && Array.isArray((raw as Stage3QuestionsResponse).questions)) {
+    return raw as Stage3QuestionsResponse;
+  }
+  return { questions: [] };
+}
+
+export const FALLBACK_STAGE3_QUESTIONS = GENERIC_STAGE3_QUESTIONS;
 
 export async function getStage3Questions(
   employeeId: string,
   sessionId: string,
-  stage1Summary: string,
-  stage2Summary: string,
-  projectsIdentified: string[] = [],
+  stage1: Stage1Data | null,
+  stage2: Stage2Data | null,
 ): Promise<Stage3QuestionsResponse> {
+  const built = buildStage3Questions(stage1, stage2);
+  const stage1Summary = stage1
+    ? `Overall: ${stage1.overallPerformance}. Wins: ${stage1.biggestWins}. Issues: ${stage1.whatWentWrong}. Rating: ${stage1.selfRating}/5. Could be different: ${stage1.whatCouldBeDifferent}. Time sinks: ${stage1.projectsConsumedTime}`
+    : '';
+  const projects = stage2?.projectsIdentified || [];
+
   try {
-    const res = await postJSON<Stage3QuestionsResponse>(WEBHOOKS.getStage3Questions, {
+    const raw = await postJSON<unknown>(WEBHOOKS.getStage3Questions, {
       employeeId,
       sessionId,
       stage1Summary,
-      stage2Summary,
-      projectsIdentified: toCsv(projectsIdentified),
+      stage2Summary: stage2?.summary || '',
+      projectsIdentified: toCsv(projects),
+      projectsIdentifiedList: projects,
+      selfRating: stage1?.selfRating,
+      contributionLevel: stage2?.contributionLevel || '',
+      contradictions: stage2?.contradictions || [],
+      keyOutputs: stage2?.keyOutputs || [],
     });
-    if (res.questions?.length) return res;
-    throw new WebhookError('stage3-questions returned no questions');
-  } catch (err) {
-    if (err instanceof WebhookError && err.status === 404) {
-      console.warn('stage3-questions webhook not found, using fallback questions');
-      return { questions: FALLBACK_STAGE3_QUESTIONS };
+    const res = unwrapStage3Questions(raw);
+    if (res.questions?.length && isSessionSpecificQuestions(res.questions, stage1, stage2)) {
+      return res;
     }
-    throw err;
+    if (!res.questions?.length) {
+      console.warn('stage3-questions returned no questions, using templated questions');
+    } else {
+      console.warn('stage3-questions looked generic, using templated questions');
+    }
+    return { questions: built };
+  } catch (err) {
+    console.warn('stage3-questions webhook failed, using templated questions', err);
+    return { questions: built };
   }
 }
 

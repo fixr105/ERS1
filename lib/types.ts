@@ -30,6 +30,7 @@ export interface Stage2Data {
   keyOutputs: string[];
   contributionLevel: 'High' | 'Medium' | 'Low' | '';
   notes: string;
+  contradictions: string[];
 }
 
 export interface InterviewQuestion {

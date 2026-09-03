@@ -9,6 +9,7 @@ import { isAirtableRecordId, submitStage1 } from '@/lib/webhooks';
 import type { Stage1Data } from '@/lib/types';
 import { ErrorCard } from '@/components/ErrorCard';
 import { saveReviewProgress } from '@/lib/reviewProgress';
+import { NoiseButton } from '@/components/ui/noise-button';
 
 const QUESTIONS = [
   { key: 'overallPerformance', label: 'How would you describe your overall performance this month?' },
@@ -204,7 +205,7 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
       </div>
 
       <div style={{ marginTop: 40, display: 'flex', justifyContent: 'flex-end' }}>
-        <button
+        <NoiseButton
           type="button"
           className="btn-primary"
           onClick={handleSubmit}
@@ -221,7 +222,7 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
               <ArrowRight size={16} />
             </>
           )}
-        </button>
+        </NoiseButton>
       </div>
     </div>
   );

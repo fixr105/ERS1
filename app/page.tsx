@@ -7,6 +7,7 @@ import { fetchEmployees } from '@/lib/webhooks';
 import type { Employee } from '@/lib/types';
 import { useReview } from '@/context/ReviewContext';
 import { getReviewProgress, resumeStageForProgress } from '@/lib/reviewProgress';
+import { NoiseButton } from '@/components/ui/noise-button';
 
 const STAGES = [
   'Self Assessment',
@@ -114,13 +115,13 @@ export default function EntryPage() {
                   >
                     <AlertCircle size={16} />
                     Could not load employees.
-                    <button type="button" onClick={loadEmployees} className="btn-text" style={{ marginLeft: 'auto' }}>
+                    <NoiseButton type="button" onClick={loadEmployees} className="btn-text" style={{ marginLeft: 'auto' }}>
                       Retry
-                    </button>
+                    </NoiseButton>
                   </div>
                 ) : (
                   <>
-                    <button
+                    <NoiseButton
                       type="button"
                       onClick={() => setDropdownOpen((o) => !o)}
                       className={`select-trigger${dropdownOpen ? ' is-open' : ''}`}
@@ -146,11 +147,11 @@ export default function EntryPage() {
                           color: 'var(--text-muted)',
                         }}
                       />
-                    </button>
+                    </NoiseButton>
                     {dropdownOpen && (
                       <div className="employee-menu">
                         {employees.map((emp) => (
-                          <button
+                          <NoiseButton
                             key={emp.id}
                             type="button"
                             className="employee-option"
@@ -170,7 +171,7 @@ export default function EntryPage() {
                                 ? `In progress · stage ${resumeStageForProgress(emp.lastCompletedStage || 0)}`
                                 : emp.department}
                             </span>
-                          </button>
+                          </NoiseButton>
                         ))}
                       </div>
                     )}
@@ -178,7 +179,7 @@ export default function EntryPage() {
                 )}
               </div>
 
-              <button
+              <NoiseButton
                 type="button"
                 className="btn-primary"
                 onClick={handleBegin}
@@ -187,7 +188,7 @@ export default function EntryPage() {
               >
                 Continue to stage {selected ? resumeStageForProgress(selected.lastCompletedStage || 0) : 1}
                 <ArrowRight size={16} />
-              </button>
+              </NoiseButton>
             </div>
 
             <ol className="app-home-stages">

@@ -8,6 +8,7 @@ import { generateReport, isAirtableRecordId, type Stage5ReportResponse } from '@
 import type { Stage5Data } from '@/lib/types';
 import { ErrorCard } from '@/components/ErrorCard';
 import { saveReviewProgress } from '@/lib/reviewProgress';
+import { NoiseButton } from '@/components/ui/noise-button';
 
 const LOADING_STEPS: { label: string; duration: number | null }[] = [
   { label: 'Reviewing your self-assessment...', duration: 3000 },
@@ -377,7 +378,7 @@ ${report.aiObservations}
 
       {/* Actions */}
       <div style={{ marginTop: 32, display: 'flex', gap: 12, justifyContent: 'center' }}>
-        <button className="btn-ghost" onClick={handleDownloadPDF} disabled={downloading}>
+        <NoiseButton className="btn-ghost" onClick={handleDownloadPDF} disabled={downloading}>
           {downloading ? (
             <>
               <Loader2 size={16} className="animate-spin" />
@@ -389,11 +390,11 @@ ${report.aiObservations}
               Download PDF
             </>
           )}
-        </button>
-        <button className="btn-primary" onClick={handleCopyMarkdown}>
+        </NoiseButton>
+        <NoiseButton className="btn-primary" onClick={handleCopyMarkdown}>
           <Copy size={16} />
           Copy as Markdown
-        </button>
+        </NoiseButton>
       </div>
 
       <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>

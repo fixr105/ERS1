@@ -2,6 +2,7 @@
 
 import { Keyboard, AlertTriangle, Check } from 'lucide-react';
 import { kbdStyle } from '@/hooks/use-keyboard-enforcement';
+import { NoiseButton } from '@/components/ui/noise-button';
 
 function RuleItem({ icon, text }: { icon: React.ReactNode; text: React.ReactNode }) {
   return (
@@ -125,14 +126,14 @@ export function KeyboardGateModal({
           />
         </div>
 
-        <button
+        <NoiseButton
           className="btn-primary"
           onClick={onConfirm}
           style={{ width: '100%', justifyContent: 'center', padding: '14px 24px', fontSize: 15 }}
         >
           <Check size={18} />
           I Understand — Start
-        </button>
+        </NoiseButton>
       </div>
     </div>
   );

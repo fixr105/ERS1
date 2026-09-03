@@ -11,6 +11,7 @@ import { PEER_RATING_LABELS } from '@/lib/types';
 import { saveReviewProgress } from '@/lib/reviewProgress';
 import { LoadingSpinner } from '@/components/Loading';
 import { ErrorCard } from '@/components/ErrorCard';
+import { NoiseButton } from '@/components/ui/noise-button';
 
 const RATING_KEYS = Object.keys(PEER_RATING_LABELS) as (keyof PeerRating['ratings'])[];
 
@@ -193,7 +194,7 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
         <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
           Contact your administrator if this seems incorrect.
         </p>
-        <button className="btn-ghost" onClick={fetchPeers}>Retry</button>
+        <NoiseButton className="btn-ghost" onClick={fetchPeers}>Retry</NoiseButton>
       </div>
     );
   }
@@ -217,7 +218,7 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
       {error && (
         <div className="error-card">
           <span>&#9888; {error}</span>
-          <button onClick={() => setError(null)}>Dismiss</button>
+          <NoiseButton onClick={() => setError(null)}>Dismiss</NoiseButton>
         </div>
       )}
 
@@ -237,13 +238,13 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
             </div>
           ))}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-            <button className="btn-ghost" onClick={() => setShowWarnings(false)}>
+            <NoiseButton className="btn-ghost" onClick={() => setShowWarnings(false)}>
               Review Ratings
-            </button>
-            <button className="btn-primary" onClick={handleSubmit} disabled={submitting}>
+            </NoiseButton>
+            <NoiseButton className="btn-primary" onClick={handleSubmit} disabled={submitting}>
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               Confirm &amp; Submit
-            </button>
+            </NoiseButton>
           </div>
         </div>
       )}
@@ -258,7 +259,7 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
           return (
             <div key={peer.id} className="glow-card" style={{ overflow: 'hidden' }}>
               {/* Header */}
-              <button
+              <NoiseButton
                 onClick={() => toggleExpand(peer.id)}
                 style={{
                   width: '100%',
@@ -284,7 +285,7 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
                     No interaction
                   </span>
                 )}
-              </button>
+              </NoiseButton>
 
               {/* Content */}
               {isExpanded && rating.interaction && (
@@ -386,10 +387,10 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
 
       {/* Submit */}
       <div style={{ marginTop: 40, display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn-primary" onClick={handleSubmit} disabled={submitting} style={{ padding: '14px 28px' }}>
+        <NoiseButton className="btn-primary" onClick={handleSubmit} disabled={submitting} style={{ padding: '14px 28px' }}>
           {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           Submit Feedback
-        </button>
+        </NoiseButton>
       </div>
     </div>
   );

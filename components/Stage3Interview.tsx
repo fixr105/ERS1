@@ -12,6 +12,7 @@ import { LoadingBar } from '@/components/Loading';
 import { ErrorCard } from '@/components/ErrorCard';
 import { useKeyboardEnforcement } from '@/hooks/use-keyboard-enforcement';
 import { KeyboardGateModal, KeyboardStatusBar, KeystrokeCounter } from '@/components/KeyboardEnforcement';
+import { NoiseButton } from '@/components/ui/noise-button';
 
 const MIN_CHARS = 60;
 
@@ -175,7 +176,7 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
         {error && (
           <div className="error-card">
             <span>&#9888; {error}</span>
-            <button onClick={() => setError(null)}>Dismiss</button>
+            <NoiseButton onClick={() => setError(null)}>Dismiss</NoiseButton>
           </div>
         )}
 
@@ -208,15 +209,15 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
               Answer every question ({answeredCount}/{questions.length}) before submitting.
             </span>
           )}
-          <button className="btn-ghost" onClick={() => setShowSummary(false)}>
+          <NoiseButton className="btn-ghost" onClick={() => setShowSummary(false)}>
             <ArrowLeft size={16} />
             Back to Questions
-          </button>
-          <button className="btn-primary" onClick={handleSubmit} disabled={submitting || mismatchCount > 0 || !allAnswered}>
+          </NoiseButton>
+          <NoiseButton className="btn-primary" onClick={handleSubmit} disabled={submitting || mismatchCount > 0 || !allAnswered}>
             {submitting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
             Submit Interview
             <ArrowRight size={16} />
-          </button>
+          </NoiseButton>
         </div>
       </div>
     );
@@ -373,7 +374,7 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
 
       {/* Navigation */}
       <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button
+        <NoiseButton
           className="btn-ghost"
           onClick={handlePrev}
           disabled={currentIdx === 0}
@@ -381,9 +382,9 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
         >
           <ArrowLeft size={16} />
           Previous
-        </button>
+        </NoiseButton>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
+          <NoiseButton
             className="btn-primary"
             onClick={handleNext}
             disabled={!isValid}
@@ -400,7 +401,7 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
                 <ArrowRight size={16} />
               </>
             )}
-          </button>
+          </NoiseButton>
         </div>
       </div>
     </div>

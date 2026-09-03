@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle, RotateCcw } from 'lucide-react';
+import { NoiseButton } from '@/components/ui/noise-button';
 
 interface ErrorCardProps {
   message: string;
@@ -21,10 +22,10 @@ export function ErrorCard({ message, onRetry }: ErrorCardProps) {
           </p>
           <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>{message}</p>
           {onRetry && (
-            <button className="btn-ghost" onClick={onRetry} style={{ padding: '8px 16px', fontSize: 13 }}>
+            <NoiseButton className="btn-ghost" onClick={onRetry} style={{ padding: '8px 16px', fontSize: 13 }}>
               <RotateCcw size={14} />
               Try Again
-            </button>
+            </NoiseButton>
           )}
         </div>
       </div>

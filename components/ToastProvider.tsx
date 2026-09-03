@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { NoiseButton } from '@/components/ui/noise-button';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -68,7 +69,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               {t.type === 'success' ? '✓' : t.type === 'error' ? '✕' : 'ℹ'}
             </span>
             <span style={{ color: 'var(--text-primary)', fontSize: 13, flex: 1 }}>{t.message}</span>
-            <button
+            <NoiseButton
               onClick={() => removeToast(t.id)}
               style={{
                 background: 'none',
@@ -83,7 +84,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               aria-label="Close toast"
             >
               ×
-            </button>
+            </NoiseButton>
           </div>
         ))}
       </div>

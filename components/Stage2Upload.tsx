@@ -15,6 +15,7 @@ import {
 } from '@/lib/webhooks';
 import type { UploadedFile, Stage2Data } from '@/lib/types';
 import { saveReviewProgress } from '@/lib/reviewProgress';
+import { NoiseButton } from '@/components/ui/noise-button';
 import { LoadingBar } from '@/components/Loading';
 import { useKeyboardEnforcement } from '@/hooks/use-keyboard-enforcement';
 import { KeyboardGateModal, KeystrokeCounter } from '@/components/KeyboardEnforcement';
@@ -286,7 +287,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
       {error && (
         <div className="error-card">
           <span>&#9888; {error}</span>
-          <button onClick={() => setError(null)}>Dismiss</button>
+          <NoiseButton onClick={() => setError(null)}>Dismiss</NoiseButton>
         </div>
       )}
 
@@ -323,16 +324,16 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
                   )}
                 </div>
                 {slot.file.uploaded && <Check size={16} color="var(--success)" />}
-                <button
+                <NoiseButton
                   type="button"
                   onClick={() => removeSlotFile(slot.priority)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}
                 >
                   <X size={16} />
-                </button>
+                </NoiseButton>
               </div>
             ) : (
-              <button
+              <NoiseButton
                 type="button"
                 className="dropzone"
                 disabled={uploading}
@@ -350,7 +351,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
               >
                 <UploadCloud size={22} color="var(--text-muted)" />
                 <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Attach one PDF</span>
-              </button>
+              </NoiseButton>
             )}
             <input
               ref={(el) => {
@@ -379,7 +380,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
                   : 'Attach at least one PDF to continue'}
             </p>
           </div>
-          <button
+          <NoiseButton
             type="button"
             className="btn-primary"
             onClick={handleAnalyse}
@@ -397,7 +398,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
                 <ArrowRight size={16} />
               </>
             )}
-          </button>
+          </NoiseButton>
         </div>
       )}
 
@@ -499,11 +500,11 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
           )}
 
           <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-            <button className="btn-ghost" onClick={() => setEditMode((e) => !e)}>
+            <NoiseButton className="btn-ghost" onClick={() => setEditMode((e) => !e)}>
               <Edit3 size={14} />
               {editMode ? 'Preview' : 'Edit Summary'}
-            </button>
-            <button
+            </NoiseButton>
+            <NoiseButton
               className="btn-primary"
               onClick={() => setShowConfirm(true)}
               disabled={submitting}
@@ -511,7 +512,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
               Confirm &amp; Continue
               <ArrowRight size={16} />
-            </button>
+            </NoiseButton>
           </div>
         </div>
       )}
@@ -526,11 +527,11 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
               Errors here affect your final assessment.
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-              <button className="btn-ghost" onClick={() => setShowConfirm(false)}>Go Back</button>
-              <button className="btn-primary" onClick={handleConfirm} disabled={submitting}>
+              <NoiseButton className="btn-ghost" onClick={() => setShowConfirm(false)}>Go Back</NoiseButton>
+              <NoiseButton className="btn-primary" onClick={handleConfirm} disabled={submitting}>
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                 Yes, Submit
-              </button>
+              </NoiseButton>
             </div>
           </div>
         </div>

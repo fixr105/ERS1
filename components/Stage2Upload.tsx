@@ -14,34 +14,43 @@ import {
   type Stage2SummaryResponse,
 } from '@/lib/webhooks';
 import type { UploadedFile, Stage2Data } from '@/lib/types';
+import { saveReviewProgress } from '@/lib/reviewProgress';
 import { LoadingBar } from '@/components/Loading';
 import { useKeyboardEnforcement } from '@/hooks/use-keyboard-enforcement';
 import { KeyboardGateModal, KeystrokeCounter } from '@/components/KeyboardEnforcement';
 
-const ACCEPTED_TYPES = '.pdf,.docx,.xlsx,.png,.jpg,.pptx';
-const MAX_FILES = 20;
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+const SLOT_COUNT = 5;
 
-const ALLOWED_MIME_TYPES = [
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'image/png',
-  'image/jpeg',
-];
+interface WorkSlot {
+  priority: number;
+  title: string;
+  file: UploadedFile | null;
+}
+
+function emptySlots(existing?: UploadedFile[]): WorkSlot[] {
+  return Array.from({ length: SLOT_COUNT }, (_, i) => {
+    const priority = i + 1;
+    const match = existing?.find((f) => f.priority === priority);
+    return {
+      priority,
+      title: match?.title || '',
+      file: match || null,
+    };
+  });
+}
 
 export function Stage2Upload({ employeeId }: { employeeId: string }) {
   const router = useRouter();
   const { state, setStage2 } = useReview();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const rawFilesRef = useRef<File[]>([]);
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const rawFilesRef = useRef<Record<number, File>>({});
   const stageStartTime = useRef(Date.now());
 
-  const [files, setFiles] = useState<UploadedFile[]>(state.stage2?.files || []);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [slots, setSlots] = useState<WorkSlot[]>(() => emptySlots(state.stage2?.files));
+  const [uploadingPriority, setUploadingPriority] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
   const [analysing, setAnalysing] = useState(false);
   const [summary, setSummary] = useState<Stage2SummaryResponse | null>(
     state.stage2?.summary
@@ -60,20 +69,13 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState(false);
 
   const { showGate, dismissGate, recordKeystroke, keystrokes, getFieldMismatch } =
     useKeyboardEnforcement(['editedSummary']);
 
-  const uploadedCount = files.filter((f) => f.uploaded).length;
-  const overallUploadPercent =
-    files.length === 0
-      ? 0
-      : Math.round(
-          files.reduce((sum, f) => sum + (f.uploaded ? 100 : uploadProgress[f.name] || 0), 0) /
-            files.length,
-        );
-  const canAnalyse = uploadedCount > 0 && !uploading && !analysing;
+  const uploadedSlots = slots.filter((s) => s.file?.uploaded);
+  const uploading = uploadingPriority != null;
+  const canAnalyse = uploadedSlots.length > 0 && !uploading && !analysing;
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -81,9 +83,10 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const validateFile = (file: File): boolean => {
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      toast(`${file.name} is not a supported file type.`, 'error');
+  const validatePdf = (file: File): boolean => {
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (!isPdf) {
+      toast('PDF only. Merge other files into one PDF for that work item.', 'error');
       return false;
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -93,94 +96,71 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
     return true;
   };
 
-  const handleFiles = async (fileList: FileList) => {
-    const allFiles = Array.from(fileList);
+  const handleSlotFile = async (priority: number, fileList: FileList | null) => {
+    const file = fileList?.[0];
+    if (!file || !validatePdf(file)) return;
 
-    const validFiles: File[] = [];
-    for (const file of allFiles) {
-      if (files.length + validFiles.length >= MAX_FILES) {
-        toast('Maximum 20 files allowed.', 'error');
-        break;
-      }
-      if (validateFile(file)) {
-        validFiles.push(file);
-      }
-    }
-
-    if (validFiles.length === 0) return;
-
-    setUploading(true);
+    const slot = slots.find((s) => s.priority === priority);
+    setUploadingPriority(priority);
     setError(null);
+    setUploadProgress((p) => ({ ...p, [priority]: 12 }));
 
-    rawFilesRef.current = [...rawFilesRef.current, ...validFiles];
-    const fileEntries: UploadedFile[] = validFiles.map((f) => ({
-      name: f.name,
-      size: f.size,
-      type: f.type,
-      uploaded: false,
-    }));
-
-    setFiles((prev) => [...prev, ...fileEntries]);
-
-    for (let i = 0; i < validFiles.length; i++) {
-      const file = validFiles[i];
-      setUploadProgress((p) => ({ ...p, [file.name]: 12 }));
-      try {
-        await ingestStage2File({
-          sessionId: state.sessionId,
-          employeeId,
-          file,
-        });
-        setUploadProgress((p) => ({ ...p, [file.name]: 100 }));
-        setFiles((prev) =>
-          prev.map((f) => (f.name === file.name ? { ...f, uploaded: true } : f)),
-        );
-      } catch (err) {
-        console.error('Ingest failed:', err);
-        setFiles((prev) => prev.filter((f) => f.name !== file.name));
-        rawFilesRef.current = rawFilesRef.current.filter((f) => f.name !== file.name);
-        toast(`Failed to send ${file.name} for parsing`, 'error');
-      }
-    }
-
-    setUploading(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files.length > 0) {
-      handleFiles(e.dataTransfer.files);
+    try {
+      await ingestStage2File({
+        sessionId: state.sessionId,
+        employeeId,
+        file,
+        priority,
+        title: slot?.title || '',
+      });
+      rawFilesRef.current[priority] = file;
+      setUploadProgress((p) => ({ ...p, [priority]: 100 }));
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.priority === priority
+            ? {
+                ...s,
+                file: {
+                  name: file.name,
+                  size: file.size,
+                  type: file.type || 'application/pdf',
+                  uploaded: true,
+                  priority,
+                  title: s.title,
+                },
+              }
+            : s,
+        ),
+      );
+    } catch (err) {
+      console.error('Ingest failed:', err);
+      delete rawFilesRef.current[priority];
+      toast(`Failed to send ${file.name} for parsing`, 'error');
+    } finally {
+      setUploadingPriority(null);
     }
   };
 
-  const removeFile = (name: string) => {
-    rawFilesRef.current = rawFilesRef.current.filter((f) => f.name !== name);
-    setFiles((prev) => prev.filter((f) => f.name !== name));
+  const removeSlotFile = (priority: number) => {
+    delete rawFilesRef.current[priority];
+    setSlots((prev) => prev.map((s) => (s.priority === priority ? { ...s, file: null } : s)));
+    setUploadProgress((p) => {
+      const next = { ...p };
+      delete next[priority];
+      return next;
+    });
   };
 
   const filesToPayload = async (): Promise<Stage2FilePayload[]> => {
-    const source = rawFilesRef.current.length
-      ? rawFilesRef.current
-      : files.map((f) => new File([], f.name, { type: f.type }));
-
-    return Promise.all(
-      source.map(async (file) => {
-        const readable =
-          file.type.startsWith('text/') ||
-          /\.(txt|csv|json|md)$/i.test(file.name);
-        let parsedContent = '';
-        if (readable && file.size > 0) {
-          parsedContent = (await file.text()).slice(0, 4000);
-        }
-        return {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          parsedContent,
-        };
-      }),
-    );
+    const filled = slots.filter((s) => s.file?.uploaded);
+    return filled.map((slot) => ({
+      name: slot.file!.name,
+      type: slot.file!.type,
+      size: slot.file!.size,
+      priority: slot.priority,
+      title: slot.title,
+      parsedContent: '',
+    }));
   };
 
   const handleAnalyse = async () => {
@@ -208,6 +188,9 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
     setError(null);
     const finalSummary = editMode ? editedSummary : summary?.summary || '';
     const edited = editMode;
+    const files: UploadedFile[] = slots
+      .filter((s) => s.file)
+      .map((s) => ({ ...s.file!, title: s.title, priority: s.priority }));
 
     try {
       const timeSpentSeconds = Math.round((Date.now() - stageStartTime.current) / 1000);
@@ -235,6 +218,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
         contradictions: summary?.contradictions || [],
       };
       setStage2(stage2Data);
+      saveReviewProgress(employeeId, state.month, state.year, state.sessionId, 2);
       toast('Work summary confirmed', 'success');
       router.push(`/review/${employeeId}/3`);
     } catch (err) {
@@ -294,8 +278,9 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
       >
         Show your work.
       </h1>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 20 }}>
-        Upload everything you produced this month. Documents, reports, spreadsheets, presentations.
+      <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 12 }}>
+        PDF only. Rank up to five work items (1 is highest priority). One PDF per item — merge related
+        files into a single PDF if you need more context.
       </p>
 
       {error && (
@@ -305,93 +290,93 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
         </div>
       )}
 
-      {/* Upload zone */}
-      <div
-        onClick={() => fileInputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        className={`dropzone${dragOver ? ' is-over' : ''}`}
-        style={{
-          minHeight: 200,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          gap: 12,
-        }}
-      >
-        <UploadCloud size={40} color="var(--text-muted)" />
-        <p style={{ color: 'var(--text-secondary)', fontSize: 15, fontWeight: 500 }}>
-          Drop files here or click to browse
-        </p>
-        <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-          PDF, DOCX, XLSX, PNG, JPG, PPTX · Max {MAX_FILES} files · 20MB each
-        </p>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={ACCEPTED_TYPES}
-          multiple
-          style={{ display: 'none' }}
-          onChange={(e) => e.target.files && handleFiles(e.target.files)}
-        />
-      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
+        {slots.map((slot) => (
+          <div key={slot.priority} className="glow-card" style={{ padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <span className="badge badge-accent">Priority {slot.priority}</span>
+              <input
+                className="input-field"
+                value={slot.title}
+                onChange={(e) =>
+                  setSlots((prev) =>
+                    prev.map((s) => (s.priority === slot.priority ? { ...s, title: e.target.value } : s)),
+                  )
+                }
+                placeholder="Workstream name (optional)"
+                style={{ flex: 1, minHeight: 40 }}
+              />
+            </div>
 
-      {/* File list */}
-      {files.length > 0 && (
-        <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {files.map((file) => (
-            <div
-              key={file.name}
-              className="glow-card"
-              style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}
-            >
-              <FileText size={20} color="var(--accent-light)" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {file.name}
-                </p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatSize(file.size)}</p>
-                {uploadProgress[file.name] !== undefined && (
-                  <div className="score-bar-wrap" style={{ height: 3, marginTop: 6 }}>
-                    <div className="score-bar-fill" style={{ width: `${uploadProgress[file.name]}%` }} />
-                  </div>
-                )}
-              </div>
-              {file.uploaded && <Check size={16} color="var(--success)" />}
-              {!uploading && (
+            {slot.file ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <FileText size={20} color="var(--accent-light)" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {slot.file.name}
+                  </p>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatSize(slot.file.size)}</p>
+                  {uploadProgress[slot.priority] !== undefined && uploadingPriority === slot.priority && (
+                    <div className="score-bar-wrap" style={{ height: 3, marginTop: 6 }}>
+                      <div className="score-bar-fill" style={{ width: `${uploadProgress[slot.priority]}%` }} />
+                    </div>
+                  )}
+                </div>
+                {slot.file.uploaded && <Check size={16} color="var(--success)" />}
                 <button
-                  onClick={() => removeFile(file.name)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--text-muted)',
-                    padding: 4,
-                  }}
+                  type="button"
+                  onClick={() => removeSlotFile(slot.priority)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}
                 >
                   <X size={16} />
                 </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="dropzone"
+                disabled={uploading}
+                onClick={() => fileInputRefs.current[slot.priority]?.click()}
+                style={{
+                  width: '100%',
+                  minHeight: 88,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  cursor: uploading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <UploadCloud size={22} color="var(--text-muted)" />
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Attach one PDF</span>
+              </button>
+            )}
+            <input
+              ref={(el) => {
+                fileInputRefs.current[slot.priority] = el;
+              }}
+              type="file"
+              accept="application/pdf,.pdf"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                handleSlotFile(slot.priority, e.target.files);
+                e.target.value = '';
+              }}
+            />
+          </div>
+        ))}
+      </div>
 
       {!summary && (
         <div className="stage2-actions">
           <div className="stage2-progress">
-            <div className="score-bar-wrap" style={{ height: 8 }}>
-              <div className="score-bar-fill" style={{ width: `${overallUploadPercent}%` }} />
-            </div>
             <p>
               {uploading
-                ? `Uploading ${uploadedCount} of ${files.length} file${files.length === 1 ? '' : 's'}…`
-                : uploadedCount > 0
-                  ? `${uploadedCount} file${uploadedCount === 1 ? '' : 's'} uploaded`
-                  : 'Upload a file to enable continue'}
+                ? 'Uploading PDF…'
+                : uploadedSlots.length > 0
+                  ? `${uploadedSlots.length} of ${SLOT_COUNT} work PDFs uploaded`
+                  : 'Attach at least one PDF to continue'}
             </p>
           </div>
           <button
@@ -399,7 +384,7 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
             className="btn-primary"
             onClick={handleAnalyse}
             disabled={!canAnalyse}
-            title={!canAnalyse ? 'Upload at least one file to continue' : undefined}
+            title={!canAnalyse ? 'Upload at least one PDF to continue' : undefined}
           >
             {uploading ? (
               <>
@@ -416,7 +401,6 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
         </div>
       )}
 
-      {/* Summary card */}
       {summary && (
         <div className="grad-border grad-border-animated" style={{ padding: 28, marginTop: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
@@ -532,7 +516,6 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
         </div>
       )}
 
-      {/* Confirm dialog */}
       {showConfirm && (
         <div className="modal-backdrop" onClick={() => setShowConfirm(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>

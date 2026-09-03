@@ -7,6 +7,7 @@ import { useToast } from '@/components/ToastProvider';
 import { generateReport, isAirtableRecordId, type Stage5ReportResponse } from '@/lib/webhooks';
 import type { Stage5Data } from '@/lib/types';
 import { ErrorCard } from '@/components/ErrorCard';
+import { saveReviewProgress } from '@/lib/reviewProgress';
 
 const LOADING_STEPS: { label: string; duration: number | null }[] = [
   { label: 'Reviewing your self-assessment...', duration: 3000 },
@@ -125,6 +126,7 @@ export function Stage5Report({ employeeId }: { employeeId: string }) {
           aiObservations: res.aiObservations,
         };
         setStage5(stage5Data);
+        saveReviewProgress(employeeId, latest.month, latest.year, latest.sessionId, 5);
         setLoading(false);
       } catch (err) {
         console.error('Webhook failed:', err);

@@ -316,10 +316,11 @@ const nodes = [];
 nodes.push(
   webhook('wh-emp', 'WH Get Employees', 'GET', 'get-employees', 0, 0, 'get-employees-001'),
   airtableSearch('at-emp', 'AT List Employees', 'Employees', 240, 0),
+  airtableSearch('at-emp-sess', 'AT List Sessions', 'Review Sessions', 360, 80),
   code(
     'code-emp',
     'Format Employees',
-    `const employees=items.map(i=>{const f=i.json.fields||i.json;const name=f.Name||f.name||'';return {id:i.json.id,name,department:f.Department||'',role:f.Role||'',email:f.Email||'',active:f.Active!==false};}).filter(e=>{if(!e.name||!e.id)return false;if(/^NOTES:/i.test(e.name))return false;const junk=new Set(['name','single line text','email','department','role']);return !junk.has(e.name.toLowerCase());});return [{json:{employees,count:employees.length}}];`,
+    `const now=new Date();const month=now.toLocaleString('en-US',{month:'long'});const year=now.getFullYear();const empItems=$('AT List Employees').all();const sessItems=$input.all();const empIds=f=>{const emp=f.Employee;if(!emp)return [];return Array.isArray(emp)?emp.map(e=>typeof e==='object'&&e?e.id:e):[emp];};const latest={};for(const i of sessItems){const f=i.json.fields||{};if(String(f.Month)!==month||Number(f.Year)!==year)continue;for(const eid of empIds(f)){latest[eid]={sessionId:i.json.id,status:String(f.Status||'')};}}const employees=empItems.map(i=>{const f=i.json.fields||i.json;const name=f.Name||f.name||'';const sess=latest[i.json.id];const submittedThisPeriod=!!sess;let lastCompletedStage=0;if(sess){lastCompletedStage=/completed/i.test(sess.status)?5:1;}return {id:i.json.id,name,department:f.Department||'',role:f.Role||'',email:f.Email||'',active:f.Active!==false,submittedThisPeriod,sessionId:sess?sess.sessionId:'',lastCompletedStage};}).filter(e=>{if(!e.name||!e.id)return false;if(/^NOTES:/i.test(e.name))return false;const junk=new Set(['name','single line text','email','department','role']);return !junk.has(e.name.toLowerCase());});return [{json:{employees,count:employees.length}}];`,
     480,
     0,
   ),
@@ -428,7 +429,7 @@ nodes.push(
   code(
     'code-ing-ex',
     'Extract File',
-    `const item=$input.first();const b=item.json.body||item.json;const bin=item.binary||{};const key=Object.keys(bin)[0]||'';const file=key?bin[key]:null;const json={sessionId:b.sessionId,employeeId:b.employeeId,name:b.name||file?.fileName||'untitled',type:b.type||file?.mimeType||'application/pdf',size:Number(b.size||file?.fileSize||0),url:b.url||'',hasBinary:!!file,submittedAt:new Date().toISOString()};return [{json,binary:file?{data:file}:{}}];`,
+    `const item=$input.first();const b=item.json.body||item.json;const bin=item.binary||{};const key=Object.keys(bin)[0]||'';const file=key?bin[key]:null;const json={sessionId:b.sessionId,employeeId:b.employeeId,name:b.name||file?.fileName||'untitled',type:b.type||file?.mimeType||'application/pdf',size:Number(b.size||file?.fileSize||0),url:b.url||'',priority:Number(b.priority)||0,title:b.title||'',hasBinary:!!file,submittedAt:new Date().toISOString()};return [{json,binary:file?{data:file}:{}}];`,
     240,
     560,
   ),
@@ -448,7 +449,7 @@ nodes.push(
   code(
     'code-ing-parse',
     'Normalize Parse',
-    `const raw=$input.first().json;const meta=$('Extract File').item.json;let text='';try{text=raw.text||raw.parsedText||raw.markdown||raw.content||raw.data||(typeof raw==='string'?raw:JSON.stringify(raw));}catch(e){text='';}if(String(text).includes('PARSE_WEBHOOK_URL'))text='';const ok=!!String(text).trim()&&meta.hasBinary;return [{json:{sessionId:meta.sessionId,employeeId:meta.employeeId,name:meta.name,type:meta.type,size:meta.size,url:meta.url,parseRaw:String(text).slice(0,100000),parsed:ok,parseStatus:ok?'ok':(meta.hasBinary?'failed':'no-binary')}}];`,
+    `const raw=$input.first().json;const meta=$('Extract File').item.json;let text='';try{text=raw.text||raw.parsedText||raw.markdown||raw.content||raw.data||(typeof raw==='string'?raw:JSON.stringify(raw));}catch(e){text='';}if(String(text).includes('PARSE_WEBHOOK_URL'))text='';const ok=!!String(text).trim()&&meta.hasBinary;return [{json:{sessionId:meta.sessionId,employeeId:meta.employeeId,name:meta.name,type:meta.type,size:meta.size,url:meta.url,priority:meta.priority||0,title:meta.title||'',parseRaw:String(text).slice(0,100000),parsed:ok,parseStatus:ok?'ok':(meta.hasBinary?'failed':'no-binary')}}];`,
     960,
     560,
   ),
@@ -465,6 +466,7 @@ nodes.push(
       'File Size KB': '={{ Math.round(($json.size||0)/1024) }}',
       'Parse Status': '={{ $json.parseStatus }}',
       'Parse Raw': '={{ $json.parseRaw }}',
+      'Projects Mapped': "={{ ($json.priority ? 'P'+$json.priority : '') + ($json.title ? ' '+$json.title : '') }}",
     },
     1200,
     560,
@@ -720,7 +722,7 @@ nodes.push(
   code(
     'code-s4-bias',
     'Bias Detection',
-    `const b=$input.first().json.body||$input.first().json;const peers=b.peerFeedback||[];const fields=['respondsOnTime','helpsWithOwnTasks','helpsBeyondScope','cooperativeEnvironment','communicationQuality','professionalEtiquette','emailEtiquette','whatsappEtiquette'];const avgs=peers.filter(p=>p.interaction!==false).map(p=>{const v=fields.map(f=>Number(p.ratings?.[f]||5));return v.reduce((a,c)=>a+c,0)/v.length;});const allUniform=avgs.length>1&&(Math.max(...avgs)-Math.min(...avgs))<1.0;const processed=peers.map(peer=>{const r=peer.ratings||{};const noI=peer.interaction===false;const v=fields.map(f=>Number(r[f]||5));const allLow=!noI&&v.every(x=>x<=2);const allHigh=!noI&&v.every(x=>x>=9);const biasFlag=allLow||allHigh||allUniform;let biasType='None';if(allLow)biasType='All Low';else if(allHigh)biasType='All High';else if(allUniform)biasType='Uniform';const avg=noI?0:v.reduce((a,c)=>a+c,0)/v.length;return {sessionId:b.sessionId,reviewerName:b.employeeName||'',revieweeId:peer.colleagueName||peer.revieweeName||peer.colleagueId,month:b.month||'',didNotInteract:noI,respondsOnTime:noI?null:(r.respondsOnTime||5),helpsWithOwnTasks:noI?null:(r.helpsWithOwnTasks||5),helpsBeyondScope:noI?null:(r.helpsBeyondScope||5),cooperativeEnvironment:noI?null:(r.cooperativeEnvironment||5),communicationQuality:noI?null:(r.communicationQuality||5),professionalEtiquette:noI?null:(r.professionalEtiquette||5),emailEtiquette:noI?null:(r.emailEtiquette||5),whatsappEtiquette:noI?null:(r.whatsappEtiquette||5),averageScore:noI?0:Math.round(avg*10)/10,biasFlag,biasType,biasReason:allLow?'All scores <= 2':allHigh?'All scores >= 9':allUniform?'Ratings uniform across all colleagues':'',biasWarningShown:!!peer.biasWarningShown,timeSpentSeconds:Number(b.timeSpentSeconds)||0};});return processed.map(p=>({json:p}));`,
+    `const b=$input.first().json.body||$input.first().json;const peers=b.peerFeedback||[];const fields=['respondsOnTime','helpsWithOwnTasks','helpsBeyondScope','cooperativeEnvironment','communicationQuality','professionalEtiquette','emailEtiquette','whatsappEtiquette'];const avgs=peers.filter(p=>p.interaction!==false).map(p=>{const v=fields.map(f=>Number(p.ratings?.[f]||5));return v.reduce((a,c)=>a+c,0)/v.length;});const allUniform=avgs.length>1&&(Math.max(...avgs)-Math.min(...avgs))<1.0;const processed=peers.map(peer=>{const r=peer.ratings||{};const noI=peer.interaction===false;const v=fields.map(f=>Number(r[f]||5));const allLow=!noI&&v.every(x=>x<=2);const allHigh=!noI&&v.every(x=>x>=9);const biasFlag=allLow||allHigh||allUniform;let biasType='None';if(allLow)biasType='All Low';else if(allHigh)biasType='All High';else if(allUniform)biasType='Uniform';const avg=noI?0:v.reduce((a,c)=>a+c,0)/v.length;return {sessionId:b.sessionId,reviewerName:b.employeeName||'',revieweeId:peer.colleagueId||peer.colleagueName||peer.revieweeName,month:b.month||'',didNotInteract:noI,respondsOnTime:noI?null:(r.respondsOnTime||5),helpsWithOwnTasks:noI?null:(r.helpsWithOwnTasks||5),helpsBeyondScope:noI?null:(r.helpsBeyondScope||5),cooperativeEnvironment:noI?null:(r.cooperativeEnvironment||5),communicationQuality:noI?null:(r.communicationQuality||5),professionalEtiquette:noI?null:(r.professionalEtiquette||5),emailEtiquette:noI?null:(r.emailEtiquette||5),whatsappEtiquette:noI?null:(r.whatsappEtiquette||5),averageScore:noI?0:Math.round(avg*10)/10,biasFlag,biasType,biasReason:allLow?'All scores <= 2':allHigh?'All scores >= 9':allUniform?'Ratings uniform across all colleagues':'',biasWarningShown:!!peer.biasWarningShown,timeSpentSeconds:Number(b.timeSpentSeconds)||0};});return processed.map(p=>({json:p}));`,
     240,
     1960,
   ),
@@ -872,7 +874,8 @@ function link(from, to) {
 
 const edges = [
   ['WH Get Employees', 'AT List Employees'],
-  ['AT List Employees', 'Format Employees'],
+  ['AT List Employees', 'AT List Sessions'],
+  ['AT List Sessions', 'Format Employees'],
   ['Format Employees', 'Respond Employees'],
 
   ['WH Submit Stage1', 'Extract Stage1'],

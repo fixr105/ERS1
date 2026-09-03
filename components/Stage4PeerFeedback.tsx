@@ -8,6 +8,7 @@ import { useToast } from '@/components/ToastProvider';
 import { fetchEmployees, submitStage4 } from '@/lib/webhooks';
 import type { Employee, PeerRating, Stage4Data } from '@/lib/types';
 import { PEER_RATING_LABELS } from '@/lib/types';
+import { saveReviewProgress } from '@/lib/reviewProgress';
 import { LoadingSpinner } from '@/components/Loading';
 import { ErrorCard } from '@/components/ErrorCard';
 
@@ -159,6 +160,7 @@ export function Stage4PeerFeedback({ employeeId }: { employeeId: string }) {
       );
       const stage4Data: Stage4Data = { peerFeedback: ratings };
       setStage4(stage4Data);
+      saveReviewProgress(employeeId, state.month, state.year, state.sessionId, 4);
       toast('Feedback submitted', 'success');
       router.push(`/review/${employeeId}/5`);
     } catch (err) {

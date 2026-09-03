@@ -1,3 +1,4 @@
+import { employeeCodeForName } from './employeeCodes';
 import type { PeerRating, ReviewState, Stage1Data, Stage2Data } from './types';
 import {
   buildStage3Questions,
@@ -144,6 +145,9 @@ export interface EmployeeResponse {
   department: string;
   role: string;
   email?: string;
+  submittedThisPeriod?: boolean;
+  sessionId?: string;
+  lastCompletedStage?: number;
 }
 
 interface EmployeesWebhookResponse {
@@ -214,6 +218,8 @@ export interface Stage2FilePayload {
   size: number;
   parsedContent?: string;
   url?: string;
+  priority?: number;
+  title?: string;
 }
 
 export interface Stage2SummaryResponse {
@@ -240,6 +246,8 @@ export async function ingestStage2File(input: {
   employeeId: string;
   file: File;
   url?: string;
+  priority?: number;
+  title?: string;
 }): Promise<{ success: boolean; fileId?: string; parsed?: boolean }> {
   const form = new FormData();
   form.append('sessionId', input.sessionId);
@@ -248,6 +256,8 @@ export async function ingestStage2File(input: {
   form.append('type', input.file.type || 'application/pdf');
   form.append('size', String(input.file.size));
   form.append('url', input.url || '');
+  form.append('priority', String(input.priority || ''));
+  form.append('title', input.title || '');
   form.append('file', input.file, input.file.name);
   return postForm(WEBHOOKS.ingestStage2File, form);
 }
@@ -443,7 +453,7 @@ export function submitStage4(
     month,
     timeSpentSeconds,
     peerFeedback: peerFeedback.map((peer) => ({
-      colleagueId: peer.colleagueName,
+      colleagueId: employeeCodeForName(peer.colleagueName),
       colleagueName: peer.colleagueName,
       revieweeName: peer.colleagueName,
       interaction: peer.interaction,
@@ -568,7 +578,7 @@ export function generateReport(
       totalPasteAttempts: stage3Qa.reduce((sum, item) => sum + (item.pasteAttempts || 0), 0),
     },
     stage4: (reviewState.stage4?.peerFeedback || []).map((peer) => ({
-      colleagueId: peer.colleagueName,
+      colleagueId: employeeCodeForName(peer.colleagueName),
       colleagueName: peer.colleagueName,
       revieweeName: peer.colleagueName,
       interaction: peer.interaction,

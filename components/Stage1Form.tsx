@@ -8,6 +8,7 @@ import { useToast } from '@/components/ToastProvider';
 import { isAirtableRecordId, submitStage1 } from '@/lib/webhooks';
 import type { Stage1Data } from '@/lib/types';
 import { ErrorCard } from '@/components/ErrorCard';
+import { saveReviewProgress } from '@/lib/reviewProgress';
 
 const QUESTIONS = [
   { key: 'overallPerformance', label: 'How would you describe your overall performance this month?' },
@@ -77,6 +78,7 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
         throw new Error('Session was not created on the server');
       }
       setSessionId(result.sessionId);
+      saveReviewProgress(employeeId, state.month, state.year, result.sessionId, 1);
       toast('Self assessment saved', 'success');
       goNext(stage1Data);
     } catch (err) {

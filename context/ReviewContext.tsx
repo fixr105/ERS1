@@ -6,7 +6,13 @@ import { INITIAL_REVIEW_STATE } from '@/lib/types';
 
 interface ReviewContextValue {
   state: ReviewState;
-  setEmployee: (id: string, name: string, department: string, role: string) => void;
+  setEmployee: (
+    id: string,
+    name: string,
+    department: string,
+    role: string,
+    sessionId?: string,
+  ) => void;
   setSessionId: (sessionId: string) => void;
   setStage1: (data: ReviewState['stage1']) => void;
   setStage2: (data: ReviewState['stage2']) => void;
@@ -21,10 +27,18 @@ const ReviewContext = createContext<ReviewContextValue | null>(null);
 export function ReviewProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ReviewState>(INITIAL_REVIEW_STATE);
 
-  const setEmployee = (id: string, name: string, department: string, role: string) => {
+  const setEmployee = (
+    id: string,
+    name: string,
+    department: string,
+    role: string,
+    existingSessionId?: string,
+  ) => {
     const now = new Date();
     const monthName = now.toLocaleString('en-US', { month: 'long' });
-    const sessionId = `${id}-${now.getFullYear()}-${now.getMonth() + 1}-${Math.random().toString(36).slice(2, 10)}`;
+    const sessionId =
+      existingSessionId ||
+      `${id}-${now.getFullYear()}-${now.getMonth() + 1}-${Math.random().toString(36).slice(2, 10)}`;
     setState((s) => ({
       ...s,
       employeeId: id,

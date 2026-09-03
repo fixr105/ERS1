@@ -3,6 +3,9 @@ export interface Employee {
   name: string;
   department: string;
   role: string;
+  submittedThisPeriod?: boolean;
+  sessionId?: string;
+  lastCompletedStage?: number;
 }
 
 export interface Stage1Data {
@@ -20,6 +23,8 @@ export interface UploadedFile {
   size: number;
   type: string;
   uploaded: boolean;
+  priority?: number;
+  title?: string;
 }
 
 export interface Stage2Data {

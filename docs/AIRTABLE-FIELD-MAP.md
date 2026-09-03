@@ -75,7 +75,7 @@ All write paths send JSON and **must** respond with JSON (never an empty 200).
 | File Size KB | Number | `size / 1024` |
 | Parse Status | Text | `ok` / `failed` / `skipped` |
 | Parse Raw | Long text | parse webhook body |
-| Projects Mapped | Text | optional AI later |
+| Projects Mapped | Text | Stage 2 slot: `P1` plus optional title |
 | Output Category | Text | |
 | AI File Summary | Long text | |
 
@@ -116,7 +116,7 @@ One row per reviewee.
 |---|---|---|
 | Session | Link | `sessionId` |
 | Reviewer Name | Text | `employeeName` |
-| Reviewee ID | Text | `colleagueName` (reviewee name, not record id) |
+| Reviewee ID | Text | Employee code (`EMP001`, `EMPPRI`, …) from `colleagueId` |
 | Did Not Interact | Checkbox | `interaction === false` |
 | Responds On Time | Number | `ratings.respondsOnTime` |
 | Helps With Own Tasks | Number | `helpsWithOwnTasks` |
@@ -158,8 +158,26 @@ Base: `https://YOUR-N8N/webhook/<path>` (frontend uses `/api/n8n/<path>`).
 Response:
 
 ```json
-{ "employees": [{ "id": "rec…", "name": "", "department": "", "role": "", "email": "" }], "count": 0 }
+{
+  "employees": [{
+    "id": "rec…",
+    "name": "",
+    "department": "",
+    "role": "",
+    "email": "",
+    "submittedThisPeriod": false,
+    "sessionId": "",
+    "lastCompletedStage": 0
+  }],
+  "count": 0
+}
 ```
+
+`submittedThisPeriod` is true when a Review Session exists for the current calendar month/year. `sessionId` is that session’s Airtable record id. `lastCompletedStage` is `0` if none, `1` while Status is In Progress, and `5` when Status is Completed. The app greys those names on home but still allows re-click; it resumes at Stage 1 or the last completed stage (browser progress can refine 2–4 until n8n looks up stage tables).
+
+---
+
+Stage 2 UI: PDF only, five priority slots, one file each. Ingest still uses `ingest-stage2-file` per chosen PDF. Summary/confirm payloads include `files[]` with `priority` and optional `title`.
 
 ### POST `submit-stage1`
 
@@ -187,7 +205,9 @@ Response: `{ "success": true, "sessionId": "rec…", "stage1Id": "rec…" }`
   "name": "report.pdf",
   "type": "application/pdf",
   "size": 120000,
-  "url": ""
+  "url": "",
+  "priority": 1,
+  "title": "Collections"
 }
 ```
 
@@ -273,7 +293,7 @@ Response: `{ "success": true, "stage3Id": "rec…", "pasteAttempts": 0, "flagged
   "month": "August",
   "timeSpentSeconds": 0,
   "peerFeedback": [{
-    "colleagueId": "Priyanka",
+    "colleagueId": "EMPPRI",
     "colleagueName": "Priyanka",
     "revieweeName": "Priyanka",
     "interaction": true,

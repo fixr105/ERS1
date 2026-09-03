@@ -6,6 +6,7 @@ import { ChevronRight, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { fetchEmployees } from '@/lib/webhooks';
 import type { Employee } from '@/lib/types';
 import { useReview } from '@/context/ReviewContext';
+import { getReviewProgress, resumeStageForProgress } from '@/lib/reviewProgress';
 
 const STAGES = [
   'Self Assessment',
@@ -29,7 +30,24 @@ export default function EntryPage() {
     setError(null);
     try {
       const data = await fetchEmployees();
-      setEmployees(data);
+      const period = new Date();
+      const monthName = period.toLocaleString('en-US', { month: 'long' });
+      const year = period.getFullYear();
+      setEmployees(
+        data.map((emp) => {
+          const local = getReviewProgress(emp.id, monthName, year);
+          const lastCompletedStage = Math.max(
+            emp.lastCompletedStage || 0,
+            local?.lastCompletedStage || 0,
+          );
+          return {
+            ...emp,
+            submittedThisPeriod: emp.submittedThisPeriod || Boolean(local),
+            sessionId: emp.sessionId || local?.sessionId || '',
+            lastCompletedStage,
+          };
+        }),
+      );
     } catch (err) {
       console.error('Webhook failed:', err);
       setError('Could not load employees. Please try again.');
@@ -48,8 +66,15 @@ export default function EntryPage() {
 
   const handleBegin = () => {
     if (!selected) return;
-    setEmployee(selected.id, selected.name, selected.department, selected.role);
-    router.push(`/review/${selected.id}/1`);
+    const resume = resumeStageForProgress(selected.lastCompletedStage || 0);
+    setEmployee(
+      selected.id,
+      selected.name,
+      selected.department,
+      selected.role,
+      selected.sessionId,
+    );
+    router.push(`/review/${selected.id}/${resume}`);
   };
 
   return (
@@ -102,10 +127,12 @@ export default function EntryPage() {
                       style={{ color: selected ? 'var(--text-primary)' : 'var(--text-muted)' }}
                     >
                       {selected ? (
-                        <span>
+                        <span style={selected.submittedThisPeriod ? { opacity: 0.7 } : undefined}>
                           {selected.name}
                           <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: 12 }}>
-                            {selected.role} · {selected.department}
+                            {selected.submittedThisPeriod
+                              ? 'Already started this month'
+                              : `${selected.role} · ${selected.department}`}
                           </span>
                         </span>
                       ) : (
@@ -131,9 +158,18 @@ export default function EntryPage() {
                               setSelected(emp);
                               setDropdownOpen(false);
                             }}
+                            style={
+                              emp.submittedThisPeriod
+                                ? { opacity: 0.45, color: 'var(--text-muted)' }
+                                : undefined
+                            }
                           >
                             <span>{emp.name}</span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{emp.department}</span>
+                            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                              {emp.submittedThisPeriod
+                                ? `In progress · stage ${resumeStageForProgress(emp.lastCompletedStage || 0)}`
+                                : emp.department}
+                            </span>
                           </button>
                         ))}
                       </div>
@@ -149,7 +185,7 @@ export default function EntryPage() {
                 disabled={!selected}
                 style={{ width: '100%', marginTop: 20 }}
               >
-                Continue to stage 1
+                Continue to stage {selected ? resumeStageForProgress(selected.lastCompletedStage || 0) : 1}
                 <ArrowRight size={16} />
               </button>
             </div>

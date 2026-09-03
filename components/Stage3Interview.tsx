@@ -7,6 +7,7 @@ import { useReview } from '@/context/ReviewContext';
 import { useToast } from '@/components/ToastProvider';
 import { getStage3Questions, submitStage3, type Stage3QuestionsResponse } from '@/lib/webhooks';
 import type { InterviewQuestion, InterviewAnswer, Stage3Data } from '@/lib/types';
+import { saveReviewProgress } from '@/lib/reviewProgress';
 import { LoadingBar } from '@/components/Loading';
 import { ErrorCard } from '@/components/ErrorCard';
 import { useKeyboardEnforcement } from '@/hooks/use-keyboard-enforcement';
@@ -145,6 +146,7 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
         );
         const stage3Data: Stage3Data = { questions, answers: qa };
         setStage3(stage3Data);
+        saveReviewProgress(employeeId, state.month, state.year, state.sessionId, 3);
         toast('Interview submitted', 'success');
         router.push(`/review/${employeeId}/4`);
       } catch (err) {

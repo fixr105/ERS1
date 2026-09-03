@@ -24,7 +24,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -50,7 +51,38 @@
     },
     {
       "parameters": {
-        "jsCode": "const employees=items.map(i=>{const f=i.json.fields||i.json;const name=f.Name||f.name||'';return {id:i.json.id,name,department:f.Department||'',role:f.Role||'',email:f.Email||'',active:f.Active!==false};}).filter(e=>{if(!e.name||!e.id)return false;if(/^NOTES:/i.test(e.name))return false;const junk=new Set(['name','single line text','email','department','role']);return !junk.has(e.name.toLowerCase());});return [{json:{employees,count:employees.length}}];"
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "AIRTABLE_BASE_ID",
+          "mode": "id",
+          "cachedResultName": "ERS"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Review Sessions",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "at-emp-sess",
+      "name": "AT List Sessions",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        360,
+        80
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const now=new Date();const month=now.toLocaleString('en-US',{month:'long'});const year=now.getFullYear();const empItems=$('AT List Employees').all();const sessItems=$input.all();const empIds=f=>{const emp=f.Employee;if(!emp)return [];return Array.isArray(emp)?emp.map(e=>typeof e==='object'&&e?e.id:e):[emp];};const latest={};for(const i of sessItems){const f=i.json.fields||{};if(String(f.Month)!==month||Number(f.Year)!==year)continue;for(const eid of empIds(f)){latest[eid]={sessionId:i.json.id,status:String(f.Status||'')};}}const employees=empItems.map(i=>{const f=i.json.fields||i.json;const name=f.Name||f.name||'';const sess=latest[i.json.id];const submittedThisPeriod=!!sess;let lastCompletedStage=0;if(sess){lastCompletedStage=/completed/i.test(sess.status)?5:1;}return {id:i.json.id,name,department:f.Department||'',role:f.Role||'',email:f.Email||'',active:f.Active!==false,submittedThisPeriod,sessionId:sess?sess.sessionId:'',lastCompletedStage};}).filter(e=>{if(!e.name||!e.id)return false;if(/^NOTES:/i.test(e.name))return false;const junk=new Set(['name','single line text','email','department','role']);return !junk.has(e.name.toLowerCase());});return [{json:{employees,count:employees.length}}];"
       },
       "id": "code-emp",
       "name": "Format Employees",
@@ -114,7 +146,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -189,7 +222,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -279,7 +313,8 @@
           "id": "AIRTABLE_CREDENTIAL_ID",
           "name": "Airtable account"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -300,7 +335,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -570,7 +606,8 @@
           "id": "AIRTABLE_CREDENTIAL_ID",
           "name": "Airtable account"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -578,7 +615,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -651,7 +689,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const sid=$('Resolve Session Id').item.json.sessionId;const stage1Id=$('AT Create Stage1').item.json.id;return [{json:{success:true,sessionId:sid,stage1Id}}];"
+        "jsCode": "const sid=$('Resolve Session Id').item.json.sessionId;const created=$('AT Create Stage1').item.json||{};const stage1Id=created.id||null;const err=created.error?.message||created.message;return [{json:{success:Boolean(sid&&stage1Id),sessionId:sid||null,stage1Id,error:stage1Id?undefined:(err||'Airtable Stage 1 write failed')}}];"
       },
       "id": "code-s1-out",
       "name": "Stage1 Response",
@@ -684,7 +722,9 @@
         "httpMethod": "POST",
         "path": "ingest-stage2-file",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {
+          "binaryData": true
+        }
       },
       "id": "wh-ing",
       "name": "WH Ingest File",
@@ -698,7 +738,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const b=$input.first().json.body||$input.first().json;return [{json:{sessionId:b.sessionId,employeeId:b.employeeId,name:b.name||'untitled',type:b.type||'',size:Number(b.size)||0,url:b.url||'',submittedAt:new Date().toISOString()}}];"
+        "jsCode": "const item=$input.first();const b=item.json.body||item.json;const bin=item.binary||{};const key=Object.keys(bin)[0]||'';const file=key?bin[key]:null;const json={sessionId:b.sessionId,employeeId:b.employeeId,name:b.name||file?.fileName||'untitled',type:b.type||file?.mimeType||'application/pdf',size:Number(b.size||file?.fileSize||0),url:b.url||'',priority:Number(b.priority)||0,title:b.title||'',hasBinary:!!file,submittedAt:new Date().toISOString()};return [{json,binary:file?{data:file}:{}}];"
       },
       "id": "code-ing-ex",
       "name": "Extract File",
@@ -711,11 +751,129 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "^rec[A-Za-z0-9]{10,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-ing-sid",
+      "name": "Ingest Session Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        360,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=String($json.sessionId||'');const ok=/^rec[A-Za-z0-9]{10,}$/.test(sid);return [{json:{success:false,error:'sessionId must be a real Airtable Review Sessions record id from submit-stage1',sessionId:sid||null}}];"
+      },
+      "id": "code-ing-bad",
+      "name": "Ingest Invalid Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const json=$input.first().json;const src=$('Extract File').first();return [{json,binary:src.binary||{}}];"
+      },
+      "id": "code-ing-bin",
+      "name": "Attach File Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "PARSE_WEBHOOK_URL",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "fileName",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "name": "fileType",
+              "value": "={{ $json.type }}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{ $json.sessionId }}"
+            },
+            {
+              "name": "employeeId",
+              "value": "={{ $json.employeeId }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "id": "http-parse",
+      "name": "Call Parse Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        560
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw=$input.first().json;const meta=$('Extract File').item.json;let text='';try{text=raw.text||raw.parsedText||raw.markdown||raw.content||raw.data||(typeof raw==='string'?raw:JSON.stringify(raw));}catch(e){text='';}if(String(text).includes('PARSE_WEBHOOK_URL'))text='';const ok=!!String(text).trim()&&meta.hasBinary;return [{json:{sessionId:meta.sessionId,employeeId:meta.employeeId,name:meta.name,type:meta.type,size:meta.size,url:meta.url,priority:meta.priority||0,title:meta.title||'',parseRaw:String(text).slice(0,100000),parsed:ok,parseStatus:ok?'ok':(meta.hasBinary?'failed':'no-binary')}}];"
+      },
+      "id": "code-ing-parse",
+      "name": "Normalize Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        560
+      ]
+    },
+    {
+      "parameters": {
         "operation": "create",
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -731,7 +889,9 @@
             "File URL": "={{ $json.url }}",
             "File Type": "={{ $json.type }}",
             "File Size KB": "={{ Math.round(($json.size||0)/1024) }}",
-            "Parse Status": "pending"
+            "Parse Status": "={{ $json.parseStatus }}",
+            "Parse Raw": "={{ $json.parseRaw }}",
+            "Projects Mapped": "={{ ($json.priority ? 'P'+$json.priority : '') + ($json.title ? ' '+$json.title : '') }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -811,104 +971,6 @@
               "type": "string",
               "readOnly": false,
               "removed": false
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "at-ing-file",
-      "name": "AT Create File",
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2.2,
-      "position": [
-        480,
-        560
-      ],
-      "credentials": {
-        "airtableTokenApi": {
-          "id": "AIRTABLE_CREDENTIAL_ID",
-          "name": "Airtable account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "PARSE_WEBHOOK_URL",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ fileName: $('Extract File').item.json.name, fileUrl: $('Extract File').item.json.url, fileType: $('Extract File').item.json.type, sessionId: $('Extract File').item.json.sessionId, employeeId: $('Extract File').item.json.employeeId }) }}",
-        "options": {
-          "timeout": 120000,
-          "allowUnauthorizedCerts": false
-        }
-      },
-      "id": "http-parse",
-      "name": "Call Parse Webhook",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        720,
-        560
-      ],
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "const raw=$input.first().json;let text='';try{text=raw.text||raw.parsedText||raw.markdown||raw.content||(typeof raw==='string'?raw:JSON.stringify(raw));}catch(e){text='';}const ok=!!String(text).trim();return [{json:{fileId:$('AT Create File').item.json.id,sessionId:$('Extract File').item.json.sessionId,parseRaw:String(text).slice(0,100000),parsed:ok,parseStatus:ok?'ok':'failed'}}];"
-      },
-      "id": "code-ing-parse",
-      "name": "Normalize Parse",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        960,
-        560
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "base": {
-          "__rl": true,
-          "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
-        },
-        "table": {
-          "__rl": true,
-          "value": "Stage 2 Files",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "id": "={{ $json.fileId }}",
-            "Parse Raw": "={{ $json.parseRaw }}",
-            "Parse Status": "={{ $json.parseStatus }}"
-          },
-          "matchingColumns": [
-            "id"
-          ],
-          "schema": [
-            {
-              "id": "id",
-              "displayName": "id",
-              "required": false,
-              "defaultMatch": true,
-              "canBeUsedToMatch": true,
-              "display": true,
-              "type": "string",
-              "readOnly": false,
-              "removed": false
             },
             {
               "id": "Parse Raw",
@@ -922,8 +984,8 @@
               "removed": false
             },
             {
-              "id": "Parse Status",
-              "displayName": "Parse Status",
+              "id": "Projects Mapped",
+              "displayName": "Projects Mapped",
               "required": false,
               "defaultMatch": false,
               "canBeUsedToMatch": true,
@@ -936,8 +998,8 @@
         },
         "options": {}
       },
-      "id": "at-ing-upd",
-      "name": "AT Update File Parse",
+      "id": "at-ing-file",
+      "name": "AT Create File",
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.2,
       "position": [
@@ -954,7 +1016,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const p=$('Normalize Parse').item.json;return [{json:{success:true,fileId:p.fileId,parsed:p.parsed}}];"
+        "jsCode": "const p=$('Normalize Parse').item.json;const created=$('AT Create File').item.json||{};return [{json:{success:true,fileId:created.id||null,parsed:p.parsed,parseStatus:p.parseStatus,hasBinary:!!p.parseRaw||p.parseStatus!=='no-binary'}}];"
       },
       "id": "code-ing-out",
       "name": "Ingest Response",
@@ -1018,7 +1080,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -1057,33 +1120,16 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer OPENROUTER_API_KEY"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'anthropic/claude-sonnet-4', max_tokens: 2000, messages: [{ role: 'user', content: $json.prompt }] }) }}",
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
         "options": {
-          "timeout": 120000,
-          "allowUnauthorizedCerts": false
+          "systemMessage": "You are a sceptical performance analyst at Seven Fincorp. Use parsed files as truth. Challenge Stage 1. Return ONLY JSON."
         }
       },
-      "id": "http-s2s-ai",
-      "name": "AI Stage2 Summary",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "agent-s2s",
+      "name": "AI Agent Stage2",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
       "position": [
         960,
         840
@@ -1092,7 +1138,31 @@
     },
     {
       "parameters": {
-        "jsCode": "const resp=$input.first().json;const t=resp.choices?.[0]?.message?.content||resp.content?.[0]?.text||'{}';let r;try{r=JSON.parse(t.replace(/\\`\\`\\`json/g,'').replace(/\\`\\`\\`/g,'').trim());}catch(e){r={projectsIdentified:[],keyOutputs:[],contributionLevel:'Medium',summary:t,notes:'',contradictions:[]};}if(typeof r.projectsIdentified==='string')r.projectsIdentified=r.projectsIdentified.split(',').map(s=>s.trim()).filter(Boolean);if(typeof r.keyOutputs==='string')r.keyOutputs=r.keyOutputs.split(',').map(s=>s.trim()).filter(Boolean);r.sessionId=$('Build Summary Prompt').item.json.sessionId;return [{json:r}];"
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-20250514",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "lm-s2s",
+      "name": "Claude Stage2",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        960,
+        980
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp=$input.first().json;const t=resp.output||resp.text||resp.choices?.[0]?.message?.content||resp.content?.[0]?.text||(typeof resp==='string'?resp:'{}');let r;try{r=JSON.parse(String(t).replace(/\\`\\`\\`json/g,'').replace(/\\`\\`\\`/g,'').trim());}catch(e){r={projectsIdentified:[],keyOutputs:[],contributionLevel:'Medium',summary:String(t),notes:'',contradictions:[]};}if(typeof r.projectsIdentified==='string')r.projectsIdentified=r.projectsIdentified.split(',').map(s=>s.trim()).filter(Boolean);if(typeof r.keyOutputs==='string')r.keyOutputs=r.keyOutputs.split(',').map(s=>s.trim()).filter(Boolean);r.sessionId=$('Build Summary Prompt').item.json.sessionId;return [{json:r}];"
       },
       "id": "code-s2s-parse",
       "name": "Parse Summary JSON",
@@ -1152,11 +1222,57 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "^rec[A-Za-z0-9]{10,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-s2-sid",
+      "name": "S2 Session Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        360,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=String($json.sessionId||'');const ok=/^rec[A-Za-z0-9]{10,}$/.test(sid);return [{json:{success:false,error:'sessionId must be a real Airtable Review Sessions record id from submit-stage1',sessionId:sid||null}}];"
+      },
+      "id": "code-s2-bad",
+      "name": "S2 Invalid Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        1240
+      ]
+    },
+    {
+      "parameters": {
         "operation": "create",
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -1314,7 +1430,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -1447,33 +1564,16 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer OPENROUTER_API_KEY"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'anthropic/claude-sonnet-4', max_tokens: 3000, messages: [{ role: 'user', content: $json.prompt }] }) }}",
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
         "options": {
-          "timeout": 120000,
-          "allowUnauthorizedCerts": false
+          "systemMessage": "You are a sharp interviewer at Seven Fincorp. Each question must name a project, file, rating, contribution, or contradiction from the payload. Return ONLY a JSON array of 10 {id,question,category} objects. No markdown."
         }
       },
-      "id": "http-s3q-ai",
-      "name": "AI Stage3 Questions",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "agent-s3q",
+      "name": "AI Agent Stage3",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
       "position": [
         480,
         1400
@@ -1482,7 +1582,31 @@
     },
     {
       "parameters": {
-        "jsCode": "const t=$input.first().json.choices?.[0]?.message?.content||'[]';const fallback=[{id:'q1',question:'Describe the most significant decision you made this month and why you made it.',category:'Reasoning'},{id:'q2',question:'Walk me through a moment where things did not go as planned. What happened?',category:'Gap Analysis'},{id:'q3',question:'Is there something you said you would do that the work files do not support? Explain.',category:'Gap Analysis'},{id:'q4',question:'How would you handle a similar situation differently next time?',category:'Decision Making'},{id:'q5',question:'What advice would you give a colleague facing the same challenge?',category:'Advice'},{id:'q6',question:'If you were advising someone else on this problem, what would you recommend?',category:'Advice'},{id:'q7',question:'Pick your most important project. What was your specific contribution?',category:'Project Deep Dive'},{id:'q8',question:'What went wrong in your most challenging project and what caused it?',category:'Project Deep Dive'},{id:'q9',question:'What is the most important thing you learned this month and how will it change how you work?',category:'Reflection'},{id:'q10',question:'What does this month reveal about how you work at your best and where you still have room to grow?',category:'Reflection'}];let questions;try{questions=JSON.parse(t.replace(/\\`\\`\\`json/g,'').replace(/\\`\\`\\`/g,'').trim());if(!Array.isArray(questions)||questions.length<8)throw new Error('bad');}catch(e){questions=fallback;}if($('Build Questions Prompt').item.json.lowProjectCount){questions[8]=fallback[8];questions[9]=fallback[9];}return [{json:{questions:questions.slice(0,10),sessionId:$('Build Questions Prompt').item.json.sessionId}}];"
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-20250514",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "lm-s3q",
+      "name": "Claude Stage3",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        480,
+        1540
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw=$input.first().json;const t=raw.output||raw.text||raw.choices?.[0]?.message?.content||'[]';const fallback=[{id:'q1',question:'Describe the most significant decision you made this month and why you made it.',category:'Reasoning'},{id:'q2',question:'Walk me through a moment where things did not go as planned. What happened?',category:'Gap Analysis'},{id:'q3',question:'Is there something you said you would do that the work files do not support? Explain.',category:'Gap Analysis'},{id:'q4',question:'How would you handle a similar situation differently next time?',category:'Decision Making'},{id:'q5',question:'What advice would you give a colleague facing the same challenge?',category:'Advice'},{id:'q6',question:'If you were advising someone else on this problem, what would you recommend?',category:'Advice'},{id:'q7',question:'Pick your most important project. What was your specific contribution?',category:'Project Deep Dive'},{id:'q8',question:'What went wrong in your most challenging project and what caused it?',category:'Project Deep Dive'},{id:'q9',question:'What is the most important thing you learned this month and how will it change how you work?',category:'Reflection'},{id:'q10',question:'What does this month reveal about how you work at your best and where you still have room to grow?',category:'Reflection'}];let questions;try{questions=JSON.parse(String(t).replace(/\\`\\`\\`json/g,'').replace(/\\`\\`\\`/g,'').trim());if(!Array.isArray(questions)||questions.length<8)throw new Error('bad');}catch(e){questions=fallback;}if($('Build Questions Prompt').item.json.lowProjectCount){questions[8]=fallback[8];questions[9]=fallback[9];}return [{json:{questions:questions.slice(0,10),sessionId:$('Build Questions Prompt').item.json.sessionId}}];"
       },
       "id": "code-s3q-parse",
       "name": "Parse Questions",
@@ -1542,11 +1666,57 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "^rec[A-Za-z0-9]{10,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-s3-sid",
+      "name": "S3 Session Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        360,
+        1680
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=String($json.sessionId||'');const ok=/^rec[A-Za-z0-9]{10,}$/.test(sid);return [{json:{success:false,error:'sessionId must be a real Airtable Review Sessions record id from submit-stage1',sessionId:sid||null}}];"
+      },
+      "id": "code-s3-bad",
+      "name": "S3 Invalid Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        1800
+      ]
+    },
+    {
+      "parameters": {
         "operation": "create",
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -2376,7 +2546,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -2496,7 +2667,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const b=$input.first().json.body||$input.first().json;const peers=b.peerFeedback||[];const fields=['respondsOnTime','helpsWithOwnTasks','helpsBeyondScope','cooperativeEnvironment','communicationQuality','professionalEtiquette','emailEtiquette','whatsappEtiquette'];const avgs=peers.filter(p=>p.interaction!==false).map(p=>{const v=fields.map(f=>Number(p.ratings?.[f]||5));return v.reduce((a,c)=>a+c,0)/v.length;});const allUniform=avgs.length>1&&(Math.max(...avgs)-Math.min(...avgs))<1.0;const processed=peers.map(peer=>{const r=peer.ratings||{};const noI=peer.interaction===false;const v=fields.map(f=>Number(r[f]||5));const allLow=!noI&&v.every(x=>x<=2);const allHigh=!noI&&v.every(x=>x>=9);const biasFlag=allLow||allHigh||allUniform;let biasType='None';if(allLow)biasType='All Low';else if(allHigh)biasType='All High';else if(allUniform)biasType='Uniform';const avg=noI?0:v.reduce((a,c)=>a+c,0)/v.length;return {sessionId:b.sessionId,reviewerName:b.employeeName||'',revieweeId:peer.colleagueName||peer.revieweeName||peer.colleagueId,month:b.month||'',didNotInteract:noI,respondsOnTime:noI?null:(r.respondsOnTime||5),helpsWithOwnTasks:noI?null:(r.helpsWithOwnTasks||5),helpsBeyondScope:noI?null:(r.helpsBeyondScope||5),cooperativeEnvironment:noI?null:(r.cooperativeEnvironment||5),communicationQuality:noI?null:(r.communicationQuality||5),professionalEtiquette:noI?null:(r.professionalEtiquette||5),emailEtiquette:noI?null:(r.emailEtiquette||5),whatsappEtiquette:noI?null:(r.whatsappEtiquette||5),averageScore:noI?0:Math.round(avg*10)/10,biasFlag,biasType,biasReason:allLow?'All scores <= 2':allHigh?'All scores >= 9':allUniform?'Ratings uniform across all colleagues':'',biasWarningShown:!!peer.biasWarningShown,timeSpentSeconds:Number(b.timeSpentSeconds)||0};});return processed.map(p=>({json:p}));"
+        "jsCode": "const b=$input.first().json.body||$input.first().json;const peers=b.peerFeedback||[];const fields=['respondsOnTime','helpsWithOwnTasks','helpsBeyondScope','cooperativeEnvironment','communicationQuality','professionalEtiquette','emailEtiquette','whatsappEtiquette'];const avgs=peers.filter(p=>p.interaction!==false).map(p=>{const v=fields.map(f=>Number(p.ratings?.[f]||5));return v.reduce((a,c)=>a+c,0)/v.length;});const allUniform=avgs.length>1&&(Math.max(...avgs)-Math.min(...avgs))<1.0;const processed=peers.map(peer=>{const r=peer.ratings||{};const noI=peer.interaction===false;const v=fields.map(f=>Number(r[f]||5));const allLow=!noI&&v.every(x=>x<=2);const allHigh=!noI&&v.every(x=>x>=9);const biasFlag=allLow||allHigh||allUniform;let biasType='None';if(allLow)biasType='All Low';else if(allHigh)biasType='All High';else if(allUniform)biasType='Uniform';const avg=noI?0:v.reduce((a,c)=>a+c,0)/v.length;return {sessionId:b.sessionId,reviewerName:b.employeeName||'',revieweeId:peer.colleagueId||peer.colleagueName||peer.revieweeName,month:b.month||'',didNotInteract:noI,respondsOnTime:noI?null:(r.respondsOnTime||5),helpsWithOwnTasks:noI?null:(r.helpsWithOwnTasks||5),helpsBeyondScope:noI?null:(r.helpsBeyondScope||5),cooperativeEnvironment:noI?null:(r.cooperativeEnvironment||5),communicationQuality:noI?null:(r.communicationQuality||5),professionalEtiquette:noI?null:(r.professionalEtiquette||5),emailEtiquette:noI?null:(r.emailEtiquette||5),whatsappEtiquette:noI?null:(r.whatsappEtiquette||5),averageScore:noI?0:Math.round(avg*10)/10,biasFlag,biasType,biasReason:allLow?'All scores <= 2':allHigh?'All scores >= 9':allUniform?'Ratings uniform across all colleagues':'',biasWarningShown:!!peer.biasWarningShown,timeSpentSeconds:Number(b.timeSpentSeconds)||0};});return processed.map(p=>({json:p}));"
       },
       "id": "code-s4-bias",
       "name": "Bias Detection",
@@ -2509,11 +2680,57 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "^rec[A-Za-z0-9]{10,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-s4-sid",
+      "name": "S4 Session Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        360,
+        1960
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=String($json.sessionId||'');const ok=/^rec[A-Za-z0-9]{10,}$/.test(sid);return [{json:{success:false,error:'sessionId must be a real Airtable Review Sessions record id from submit-stage1',sessionId:sid||null}}];"
+      },
+      "id": "code-s4-bad",
+      "name": "S4 Invalid Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        2080
+      ]
+    },
+    {
+      "parameters": {
         "operation": "create",
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -2767,7 +2984,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -2904,7 +3122,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -2930,50 +3149,115 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer OPENROUTER_API_KEY"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'anthropic/claude-sonnet-4', max_tokens: 4000, messages: [{ role: 'user', content: $('Build Report Prompt').item.json.prompt }] }) }}",
+        "jsCode": "const meta=$('Build Report Prompt').item.json;return [{json:{prompt:meta.prompt,sessionId:meta.sessionId}}];"
+      },
+      "id": "code-s5-pass",
+      "name": "Pass Report Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
         "options": {
-          "timeout": 120000,
-          "allowUnauthorizedCerts": false
+          "systemMessage": "You are the AI performance evaluator for Seven Fincorp. Do not inflate scores. Return ONLY the JSON object requested."
         }
       },
-      "id": "http-s5-ai",
-      "name": "AI Final Report",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "agent-s5",
+      "name": "AI Agent Report",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
       "position": [
-        720,
+        840,
         2240
       ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const t=$input.first().json.choices?.[0]?.message?.content||'{}';const meta=$('Build Report Prompt').item.json;let r;try{r=JSON.parse(t.replace(/\\`\\`\\`json/g,'').replace(/\\`\\`\\`/g,'').trim());}catch(e){r={overallScore:70,dimensions:[{name:'Quality of Work',score:7},{name:'Quantity of Output',score:7},{name:'Problem Solving',score:7},{name:'Ownership',score:7},{name:'Decision Making',score:7},{name:'Communication',score:7},{name:'Collaboration',score:7},{name:'Self-Awareness',score:7}],majorAchievements:'Parse error.',keyGaps:'',developmentPriorities:'',peerFeedbackSummary:'',aiObservations:t,fullReportMarkdown:t};}const dims=Array.isArray(r.dimensions)?r.dimensions:[];const dim=n=>(dims.find(d=>d.name===n)||{}).score||0;const empItems=$('AT Get Employee').all();const emp=empItems.map(i=>i.json).find(j=>(j.id||'')===meta.employeeId)||{};const f=emp.fields||emp;const managerEmail=f['Reporting To Email']||meta.managerEmail||'';const hr='HR_INBOX';return [{json:{...r,sessionId:meta.sessionId,employeeName:meta.employeeName,month:meta.month,year:meta.year,qualityOfWork:dim('Quality of Work'),quantityOfOutput:dim('Quantity of Output'),problemSolving:dim('Problem Solving'),ownership:dim('Ownership'),decisionMaking:dim('Decision Making'),communication:dim('Communication'),collaboration:dim('Collaboration'),selfAwareness:dim('Self-Awareness'),toEmail:[f.Email,managerEmail,hr].filter(Boolean).join(', '),subject:`Monthly review — ${meta.employeeName} — ${meta.month} ${meta.year}`,message:r.fullReportMarkdown||r.aiObservations||'',emailedTo:[f.Email,managerEmail,hr].filter(Boolean).join(', ')}}];"
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-20250514",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "lm-s5",
+      "name": "Claude Report",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        840,
+        2380
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw=$input.first().json;const t=raw.output||raw.text||raw.choices?.[0]?.message?.content||'{}';const meta=$('Build Report Prompt').item.json;let r;try{r=JSON.parse(String(t).replace(/\\`\\`\\`json/g,'').replace(/\\`\\`\\`/g,'').trim());}catch(e){r={overallScore:70,dimensions:[{name:'Quality of Work',score:7},{name:'Quantity of Output',score:7},{name:'Problem Solving',score:7},{name:'Ownership',score:7},{name:'Decision Making',score:7},{name:'Communication',score:7},{name:'Collaboration',score:7},{name:'Self-Awareness',score:7}],majorAchievements:'Parse error.',keyGaps:'',developmentPriorities:'',peerFeedbackSummary:'',aiObservations:String(t),fullReportMarkdown:String(t)};}const dims=Array.isArray(r.dimensions)?r.dimensions:[];const dim=n=>(dims.find(d=>d.name===n)||{}).score||0;const empItems=$('AT Get Employee').all();const emp=empItems.map(i=>i.json).find(j=>(j.id||'')===meta.employeeId)||{};const f=emp.fields||emp;const managerEmail=f['Reporting To Email']||meta.managerEmail||'';const hr='HR_INBOX';return [{json:{...r,sessionId:meta.sessionId,employeeName:meta.employeeName,month:meta.month,year:meta.year,qualityOfWork:dim('Quality of Work'),quantityOfOutput:dim('Quantity of Output'),problemSolving:dim('Problem Solving'),ownership:dim('Ownership'),decisionMaking:dim('Decision Making'),communication:dim('Communication'),collaboration:dim('Collaboration'),selfAwareness:dim('Self-Awareness'),toEmail:[f.Email,managerEmail,hr].filter(Boolean).join(', '),subject:`Monthly review — ${meta.employeeName} — ${meta.month} ${meta.year}`,message:r.fullReportMarkdown||r.aiObservations||'',emailedTo:[f.Email,managerEmail,hr].filter(Boolean).join(', ')}}];"
       },
       "id": "code-s5-parse",
       "name": "Parse Report",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        960,
+        1080,
         2240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "^rec[A-Za-z0-9]{10,}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-s5-sid",
+      "name": "S5 Session Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        1140,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sid=String($json.sessionId||'');const ok=/^rec[A-Za-z0-9]{10,}$/.test(sid);return [{json:{success:false,error:'sessionId must be a real Airtable Review Sessions record id from submit-stage1',sessionId:sid||null}}];"
+      },
+      "id": "code-s5-bad",
+      "name": "S5 Invalid Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        2360
       ]
     },
     {
@@ -2982,7 +3266,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -3011,7 +3296,7 @@
             "Peer Feedback Summary": "={{ $json.peerFeedbackSummary }}",
             "Cross Stage Observations": "={{ $json.aiObservations }}",
             "Full Report Markdown": "={{ $json.fullReportMarkdown }}",
-            "Model Used": "anthropic/claude-sonnet-4",
+            "Model Used": "claude-sonnet-4-20250514",
             "Emailed To": "={{ $json.emailedTo }}"
           },
           "matchingColumns": [],
@@ -3272,7 +3557,8 @@
         "base": {
           "__rl": true,
           "value": "AIRTABLE_BASE_ID",
-          "mode": "id"
+          "mode": "id",
+          "cachedResultName": "ERS"
         },
         "table": {
           "__rl": true,
@@ -3426,6 +3712,17 @@
       "main": [
         [
           {
+            "node": "AT List Sessions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AT List Sessions": {
+      "main": [
+        [
+          {
             "node": "Format Employees",
             "type": "main",
             "index": 0
@@ -3554,18 +3851,7 @@
         ]
       ]
     },
-    "Extract File": {
-      "main": [
-        [
-          {
-            "node": "AT Create File",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "AT Create File": {
+    "Attach File Binary": {
       "main": [
         [
           {
@@ -3591,14 +3877,14 @@
       "main": [
         [
           {
-            "node": "AT Update File Parse",
+            "node": "AT Create File",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "AT Update File Parse": {
+    "AT Create File": {
       "main": [
         [
           {
@@ -3657,14 +3943,14 @@
       "main": [
         [
           {
-            "node": "AI Stage2 Summary",
+            "node": "AI Agent Stage2",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "AI Stage2 Summary": {
+    "AI Agent Stage2": {
       "main": [
         [
           {
@@ -3691,17 +3977,6 @@
         [
           {
             "node": "Extract Stage2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract Stage2": {
-      "main": [
-        [
-          {
-            "node": "AT Create Evidence",
             "type": "main",
             "index": 0
           }
@@ -3756,14 +4031,14 @@
       "main": [
         [
           {
-            "node": "AI Stage3 Questions",
+            "node": "AI Agent Stage3",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "AI Stage3 Questions": {
+    "AI Agent Stage3": {
       "main": [
         [
           {
@@ -3790,17 +4065,6 @@
         [
           {
             "node": "Map Stage3 QA",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Map Stage3 QA": {
-      "main": [
-        [
-          {
-            "node": "AT Create Stage3",
             "type": "main",
             "index": 0
           }
@@ -3845,17 +4109,6 @@
         [
           {
             "node": "Bias Detection",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bias Detection": {
-      "main": [
-        [
-          {
-            "node": "AT Create Peer Rows",
             "type": "main",
             "index": 0
           }
@@ -3921,29 +4174,29 @@
       "main": [
         [
           {
-            "node": "AI Final Report",
+            "node": "Pass Report Prompt",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "AI Final Report": {
+    "Pass Report Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Report": {
       "main": [
         [
           {
             "node": "Parse Report",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Report": {
-      "main": [
-        [
-          {
-            "node": "AT Create Report",
             "type": "main",
             "index": 0
           }
@@ -4011,6 +4264,239 @@
           }
         ]
       ]
+    },
+    "Extract File": {
+      "main": [
+        [
+          {
+            "node": "Ingest Session Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Session Valid?": {
+      "main": [
+        [
+          {
+            "node": "Attach File Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ingest Invalid Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Invalid Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Stage2": {
+      "main": [
+        [
+          {
+            "node": "S2 Session Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S2 Session Valid?": {
+      "main": [
+        [
+          {
+            "node": "AT Create Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "S2 Invalid Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S2 Invalid Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Stage2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Stage3 QA": {
+      "main": [
+        [
+          {
+            "node": "S3 Session Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S3 Session Valid?": {
+      "main": [
+        [
+          {
+            "node": "AT Create Stage3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "S3 Invalid Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S3 Invalid Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Stage3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bias Detection": {
+      "main": [
+        [
+          {
+            "node": "S4 Session Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S4 Session Valid?": {
+      "main": [
+        [
+          {
+            "node": "AT Create Peer Rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "S4 Invalid Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S4 Invalid Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Stage4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Report": {
+      "main": [
+        [
+          {
+            "node": "S5 Session Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S5 Session Valid?": {
+      "main": [
+        [
+          {
+            "node": "AT Create Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "S5 Invalid Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S5 Invalid Session": {
+      "main": [
+        [
+          {
+            "node": "Respond Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Stage2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Stage2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Stage3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Stage3",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Report": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Report",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
@@ -4019,7 +4505,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "ers-production-v1",
+  "versionId": "ers-flow-v3",
   "meta": {
     "templateCredsSetupCompleted": false
   },

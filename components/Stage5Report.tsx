@@ -33,6 +33,8 @@ export function Stage5Report({ employeeId }: { employeeId: string }) {
           developmentPriorities: state.stage5.developmentPriorities,
           peerFeedbackSummary: state.stage5.peerFeedbackSummary,
           aiObservations: state.stage5.aiObservations,
+          aiDetected: state.stage5.aiDetected,
+          aiFlaggedCount: state.stage5.aiFlaggedCount,
         }
       : null,
   );
@@ -125,6 +127,8 @@ export function Stage5Report({ employeeId }: { employeeId: string }) {
           developmentPriorities: res.developmentPriorities,
           peerFeedbackSummary: res.peerFeedbackSummary,
           aiObservations: res.aiObservations,
+          aiDetected: res.aiDetected,
+          aiFlaggedCount: res.aiFlaggedCount,
         };
         setStage5(stage5Data);
         saveReviewProgress(employeeId, latest.month, latest.year, latest.sessionId, 5);
@@ -292,6 +296,18 @@ ${report.aiObservations}
         <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 40 }}>
           Generated from your self-assessment, work evidence, interview, and peer feedback.
         </p>
+
+        {report.aiDetected && (
+          <div
+            className="error-card"
+            style={{ marginBottom: 28 }}
+            role="alert"
+          >
+            <span>
+              AI detected. Score not reliable. Please refill MTIR.
+            </span>
+          </div>
+        )}
 
         {/* Report card */}
         <div id="report-content" className="grad-border grad-border-animated" style={{ padding: 36 }}>

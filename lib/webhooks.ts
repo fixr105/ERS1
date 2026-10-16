@@ -1,4 +1,6 @@
 import { employeeCodeForName } from './employeeCodes';
+import { timingFieldsForReview } from './antiAiTiming';
+import { evaluateAnswerTiming } from './timingTickets';
 import type { PeerRating, ReviewState, Stage1Data, Stage2Data } from './types';
 import {
   buildStage3Questions,
@@ -481,6 +483,8 @@ export interface Stage5ReportResponse {
   peerFeedbackSummary: string;
   aiObservations: string;
   fullReportMarkdown?: string;
+  aiDetected?: boolean;
+  aiFlaggedCount?: number;
 }
 
 const DIMENSION_LABELS: Record<string, string> = {
@@ -555,7 +559,20 @@ export function generateReport(
     pasteAttempts: item.pasteAttempts || 0,
   }));
 
-  generateReportInflight = postJSON<unknown>(WEBHOOKS.generateReport, {
+  generateReportInflight = (async () => {
+    const fieldIds = timingFieldsForReview({
+      stage1: reviewState.stage1 as Record<string, unknown> | null,
+      stage2: reviewState.stage2,
+      stage3: reviewState.stage3,
+    });
+    let timing = { flaggedCount: 0, invalidateReport: false };
+    try {
+      timing = await evaluateAnswerTiming(sessionId, fieldIds);
+    } catch {
+      timing = { flaggedCount: fieldIds.length, invalidateReport: fieldIds.length > 1 };
+    }
+
+    const raw = await postJSON<unknown>(WEBHOOKS.generateReport, {
     employeeId,
     sessionId,
     employeeName: reviewState.employeeName,
@@ -564,6 +581,8 @@ export function generateReport(
     role: reviewState.employeeRole,
     department: reviewState.employeeDepartment,
     timeSpentSeconds,
+    aiFlaggedCount: timing.flaggedCount,
+    aiDetected: timing.invalidateReport,
     stage1: stage1ToQ(reviewState.stage1),
     stage2: {
       finalSummary: reviewState.stage2?.summary || '',
@@ -593,7 +612,7 @@ export function generateReport(
         whatsappEtiquette: peer.ratings.whatsappEtiquette,
       },
     })),
-  }, 180000).then((raw) => {
+  }, 180000);
     const body = unwrapReportPayload(raw);
     const hasContent =
       body.overallScore != null ||
@@ -603,17 +622,21 @@ export function generateReport(
     if (!hasContent) {
       throw new WebhookError('Empty report response');
     }
+    const dimensions = normalizeDimensions(body.dimensions);
+    const invalidate = timing.invalidateReport;
     return {
-      overallScore: Number(body.overallScore || 0),
-      dimensions: normalizeDimensions(body.dimensions),
+      overallScore: invalidate ? 0 : Number(body.overallScore || 0),
+      dimensions: invalidate ? dimensions.map((d) => ({ ...d, score: 0 })) : dimensions,
       majorAchievements: body.majorAchievements || '',
       keyGaps: body.keyGaps || '',
       developmentPriorities: body.developmentPriorities || '',
       peerFeedbackSummary: body.peerFeedbackSummary || '',
       aiObservations: body.aiObservations || body.crossStageObservations || '',
       fullReportMarkdown: body.fullReportMarkdown || '',
+      aiDetected: invalidate,
+      aiFlaggedCount: timing.flaggedCount,
     };
-  }).finally(() => {
+  })().finally(() => {
     generateReportInflight = null;
   });
 

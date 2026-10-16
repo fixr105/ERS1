@@ -16,6 +16,8 @@ import {
 import type { UploadedFile, Stage2Data } from '@/lib/types';
 import { saveReviewProgress } from '@/lib/reviewProgress';
 import { NoiseButton } from '@/components/ui/noise-button';
+import { ensureTimingTicket } from '@/lib/timingTickets';
+import { stage2SummaryFieldId } from '@/lib/antiAiTiming';
 import { LoadingBar } from '@/components/Loading';
 import { useKeyboardEnforcement } from '@/hooks/use-keyboard-enforcement';
 import { KeyboardGateModal, KeystrokeCounter } from '@/components/KeyboardEnforcement';
@@ -422,6 +424,9 @@ export function Stage2Upload({ employeeId }: { employeeId: string }) {
                 onPaste={(e) => { e.preventDefault(); toast('Paste is disabled — keyboard input only', 'error'); }}
                 onContextMenu={(e) => e.preventDefault()}
                 onKeyPress={() => recordKeystroke('editedSummary')}
+                onKeyDown={() => {
+                  void ensureTimingTicket(state.sessionId, stage2SummaryFieldId());
+                }}
                 onChange={(e) => setEditedSummary(e.target.value)}
                 rows={8}
                 style={{ minHeight: 160 }}

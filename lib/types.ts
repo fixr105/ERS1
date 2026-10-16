@@ -92,6 +92,8 @@ export interface Stage5Data {
   developmentPriorities: string;
   peerFeedbackSummary: string;
   aiObservations: string;
+  aiDetected?: boolean;
+  aiFlaggedCount?: number;
 }
 
 export interface ReviewState {

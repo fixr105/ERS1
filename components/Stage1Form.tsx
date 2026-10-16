@@ -10,6 +10,8 @@ import type { Stage1Data } from '@/lib/types';
 import { ErrorCard } from '@/components/ErrorCard';
 import { saveReviewProgress } from '@/lib/reviewProgress';
 import { NoiseButton } from '@/components/ui/noise-button';
+import { ensureTimingTicket } from '@/lib/timingTickets';
+import { stage1FieldId } from '@/lib/antiAiTiming';
 
 const QUESTIONS = [
   { key: 'overallPerformance', label: 'How would you describe your overall performance this month?' },
@@ -134,6 +136,9 @@ export function Stage1Form({ employeeId }: { employeeId: string }) {
               <textarea
                 className="input-field"
                 value={value}
+                onKeyDown={() => {
+                  void ensureTimingTicket(state.sessionId, stage1FieldId(q.key));
+                }}
                 onChange={(e) => setAnswers((a) => ({ ...a, [q.key]: e.target.value }))}
                 rows={4}
                 placeholder="Type your answer..."

@@ -13,6 +13,8 @@ import { ErrorCard } from '@/components/ErrorCard';
 import { useKeyboardEnforcement } from '@/hooks/use-keyboard-enforcement';
 import { KeyboardGateModal, KeyboardStatusBar, KeystrokeCounter } from '@/components/KeyboardEnforcement';
 import { NoiseButton } from '@/components/ui/noise-button';
+import { ensureTimingTicket } from '@/lib/timingTickets';
+import { stage3FieldId } from '@/lib/antiAiTiming';
 
 const MIN_CHARS = 60;
 
@@ -319,6 +321,9 @@ export function Stage3Interview({ employeeId }: { employeeId: string }) {
             }}
             onContextMenu={(e) => e.preventDefault()}
             onKeyPress={() => recordKeystroke(currentQ.id)}
+            onKeyDown={() => {
+              void ensureTimingTicket(state.sessionId, stage3FieldId(currentQ.id));
+            }}
             onChange={(e) => setAnswers((a) => ({ ...a, [currentQ.id]: e.target.value }))}
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
